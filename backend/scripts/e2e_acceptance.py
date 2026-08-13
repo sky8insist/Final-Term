@@ -5,6 +5,8 @@ import json
 import os
 import sys
 import time
+from uuid import uuid4
+from datetime import datetime, timedelta
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -53,6 +55,16 @@ REQUIRED_SCHEMA = {
     "lightrag_material_index": {"id", "user_id", "subject_id", "material_id", "status"},
     "chat_messages": {"id", "user_id", "subject_id", "role", "content", "citations"},
     "review_progress": {"id", "user_id", "subject_id", "mastered_count", "total_count"},
+    "processing_tasks": {"id", "user_id", "stage", "progress"},
+    "material_assets": {"id", "user_id", "object_path"},
+    "content_blocks": {"id", "block_type", "structured_data", "source_hash"},
+    "memory_entries": {"id", "target", "content"},
+    "memory_snapshots": {"id", "session_id", "assistant_memory", "user_profile"},
+    "artifacts": {"id", "artifact_type", "content", "version"},
+    "exams": {"id", "blueprint_id", "status"},
+    "wrong_answers": {"id", "question_id", "diagnosis"},
+    "study_plans": {"id", "exam_date", "daily_minutes"},
+    "review_tasks": {"id", "knowledge_key", "scheduled_date"},
 }
 
 
@@ -245,8 +257,33 @@ def has_text(payload: Any, expected: str) -> bool:
     return expected in json.dumps(payload, ensure_ascii=False)
 
 
+def queue_and_wait(client: httpx.Client, api_url: str, session: Session,
+                   subject_id: str, path: Path, content_type: str, timeout: float) -> dict:
+    with path.open("rb") as file_obj:
+        response = client.post(
+            f"{api_url.rstrip('/')}/api/v1/materials/uploads", headers=api_headers(session),
+            data={"subject_id": subject_id}, files={"file": (path.name, file_obj, content_type)},
+        )
+    response.raise_for_status()
+    queued = response.json()
+    if queued.get("deduplicated") and queued.get("material", {}).get("status") == "ready":
+        return queued
+    task = queued.get("task")
+    if not task:
+        raise RuntimeError("Async upload did not return a task")
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        current = api_json(client, "GET", f"{api_url.rstrip('/')}/api/v1/tasks/{task['id']}", session)
+        if current["status"] in {"succeeded", "failed", "cancelled"}:
+            if current["status"] != "succeeded":
+                raise RuntimeError(f"Async task ended as {current['status']}: {current.get('errorMessage')}")
+            return {**queued, "task": current}
+        time.sleep(1)
+    raise RuntimeError("Async upload did not finish before timeout")
+
+
 def run_acceptance(args: argparse.Namespace) -> list[Check]:
-    env_file = load_env_file(ROOT / ".env")
+    env_file = load_env_file(ROOT.parent / ".env")
     api_url = args.api_base_url or env_value("ACCEPTANCE_API_BASE_URL", env_file, "http://localhost:8000")
     supabase_url = args.supabase_url or env_value("SUPABASE_URL", env_file)
     supabase_anon_key = args.supabase_anon_key or env_value("SUPABASE_ANON_KEY", env_file)
@@ -405,6 +442,55 @@ def run_acceptance(args: argparse.Namespace) -> list[Check]:
             )
         )
 
+        if args.full:
+            async_fixture = Path(args.workdir) / "async_unique.txt"
+            async_fixture.write_text("ASYNC-C1 特征值是特征多项式的根。", encoding="utf-8")
+            queued = queue_and_wait(client, api_url, session_a, subject_a["id"], async_fixture, "text/plain", args.timeout)
+            checks.append(Check("async ingestion", queued["task"]["stage"] == "ready", "Task reached ready"))
+
+            audio_path_value = env_value("ACCEPTANCE_AUDIO_FILE", env_file)
+            if not audio_path_value or not Path(audio_path_value).exists():
+                checks.append(Check("audio ingestion", False, "Set ACCEPTANCE_AUDIO_FILE to a clear MP3/WAV/M4A lecture recording"))
+            else:
+                audio_path = Path(audio_path_value)
+                audio_type = {".wav": "audio/wav", ".m4a": "audio/mp4"}.get(audio_path.suffix.lower(), "audio/mpeg")
+                audio_result = queue_and_wait(client, api_url, session_a, subject_a["id"], audio_path, audio_type, args.timeout)
+                blocks = api_json(client, "GET", f"{api_url.rstrip('/')}/api/v1/materials/{audio_result['material']['id']}/blocks", session_a)
+                checks.append(Check("audio ingestion", any(item["block_type"] == "audio" and item.get("start_time") is not None for item in blocks), "Timestamped audio blocks exist"))
+
+            session_id = str(uuid4())
+            beginner = api_json(client, "POST", f"{api_url.rstrip('/')}/api/v1/assistant/messages", session_a,
+                                json={"subjectId": subject_a["id"], "sessionId": session_id, "role": "beginner", "message": "用小白能懂的方式解释特征值"})
+            socratic = api_json(client, "POST", f"{api_url.rstrip('/')}/api/v1/assistant/messages", session_a,
+                               json={"subjectId": subject_a["id"], "sessionId": session_id, "role": "socratic", "message": "训练我判断矩阵能否对角化"})
+            checks.append(Check("role switching", beginner["role"]["id"] == "beginner" and socratic["role"]["id"] == "socratic", "Context retained in one session"))
+
+            snapshot = api_json(client, "POST", f"{api_url.rstrip('/')}/api/v1/memory-snapshots", session_a,
+                                json={"sessionId": session_id, "subjectId": subject_a["id"]})
+            checks.append(Check("Hermes frozen snapshot", snapshot["session_id"] == session_id, "Snapshot created and reused by session"))
+
+            mind_map = api_json(client, "POST", f"{api_url.rstrip('/')}/api/v1/artifacts/mind-maps", session_a,
+                                json={"subjectId": subject_a["id"], "scope": "矩阵与特征值"})
+            flashcards = api_json(client, "POST", f"{api_url.rstrip('/')}/api/v1/artifacts/flashcards", session_a,
+                                  json={"subjectId": subject_a["id"], "scope": "期末高频概念", "count": 5})
+            checks.append(Check("artifacts", mind_map["artifact_type"] == "mind_map" and flashcards["artifact_type"] == "flashcards", "Mind map and flashcards generated"))
+
+            exam = api_json(client, "POST", f"{api_url.rstrip('/')}/api/v1/exams", session_a, json={
+                "subjectId": subject_a["id"], "title": "E2E 模拟卷", "durationMinutes": 30,
+                "difficulty": "medium", "questionTypes": [{"questionType": "single_choice", "count": 2, "pointsEach": 5}],
+            })
+            attempt = api_json(client, "POST", f"{api_url.rstrip('/')}/api/v1/exam-attempts", session_a, json={"examId": exam["id"]})
+            for question in attempt["exam"]["questions"]:
+                api_json(client, "PATCH", f"{api_url.rstrip('/')}/api/v1/exam-attempts/{attempt['id']}/responses", session_a,
+                         json={"questionId": question["id"], "response": ""})
+            grade = api_json(client, "POST", f"{api_url.rstrip('/')}/api/v1/exam-attempts/{attempt['id']}/submit", session_a)
+            checks.append(Check("exam and grading", len(grade["results"]) == 2 and grade["maxScore"] == 10, "Versioned exam submitted and graded"))
+
+            exam_date = (datetime.now().date() + timedelta(days=7)).isoformat()
+            plan = api_json(client, "POST", f"{api_url.rstrip('/')}/api/v1/study-plans", session_a,
+                            json={"subjectId": subject_a["id"], "examDate": exam_date, "dailyMinutes": 45})
+            checks.append(Check("adaptive plan", bool(plan["tasks"]), f"Generated {len(plan['tasks'])} spaced tasks"))
+
     return checks
 
 
@@ -422,14 +508,15 @@ def print_checks(checks: list[Check]) -> int:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run Exam AI MVP end-to-end acceptance checks.")
     parser.add_argument("--api-base-url", default=None, help="Backend API URL. Default: ACCEPTANCE_API_BASE_URL or http://localhost:8000")
-    parser.add_argument("--supabase-url", default=None, help="Supabase API URL. Default: SUPABASE_URL from backend/.env")
-    parser.add_argument("--supabase-anon-key", default=None, help="Supabase anon key. Default: SUPABASE_ANON_KEY from backend/.env")
-    parser.add_argument("--database-url", default=None, help="Postgres URL. Default: DATABASE_URL from backend/.env")
+    parser.add_argument("--supabase-url", default=None, help="Supabase API URL. Default: SUPABASE_URL from project .env")
+    parser.add_argument("--supabase-anon-key", default=None, help="Supabase anon key. Default: SUPABASE_ANON_KEY from project .env")
+    parser.add_argument("--database-url", default=None, help="Postgres URL. Default: DATABASE_URL from project .env")
     parser.add_argument("--workdir", default=str(DEFAULT_WORKDIR), help="Where generated fixture files are written")
     parser.add_argument("--apply-migrations", action="store_true", help="Apply backend/migrations/*.sql before running checks")
     parser.add_argument("--generate-only", action="store_true", help="Only generate fixture files")
     parser.add_argument("--continue-on-failure", action="store_true", help="Keep running independent checks after a failure")
     parser.add_argument("--timeout", type=float, default=180.0, help="HTTP timeout in seconds")
+    parser.add_argument("--full", action="store_true", help="Run multimodal, memory, role, artifact, exam, grading, and plan checks")
     return parser.parse_args()
 
 

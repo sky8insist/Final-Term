@@ -5,6 +5,7 @@ from jwt import InvalidTokenError
 
 from app.config.settings import settings
 from app.models.user import CurrentUser
+from app.services.observability_service import user_id_context
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -44,6 +45,7 @@ def get_current_user(
             detail="Bearer token does not include a user id",
         )
 
+    user_id_context.set(user_id)
     return CurrentUser(
         id=user_id,
         email=payload.get("email"),

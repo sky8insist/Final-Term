@@ -11,11 +11,13 @@ router = APIRouter()
 class SubjectCreateRequest(BaseModel):
     name: str
     description: str | None = None
+    external_knowledge_enabled: bool = False
 
 
 class SubjectUpdateRequest(BaseModel):
     name: str | None = None
     description: str | None = None
+    external_knowledge_enabled: bool | None = None
 
 
 @router.get("")
@@ -32,6 +34,7 @@ async def create_subject(
         user_id=current_user.id,
         name=payload.name,
         description=payload.description,
+        external_knowledge_enabled=payload.external_knowledge_enabled,
     )
 
 
@@ -54,6 +57,7 @@ async def update_subject(
         subject_id=subject_id,
         name=payload.name,
         description=payload.description,
+        external_knowledge_enabled=payload.external_knowledge_enabled,
     )
 
 

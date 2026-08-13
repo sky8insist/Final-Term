@@ -1,0 +1,41 @@
+[
+  {
+    "query": "线性无关的定义",
+    "relevantIds": ["linear-definition", "linear-example"],
+    "forbiddenIds": ["other-user-private"],
+    "expectedBlockTypes": ["paragraph"],
+    "retrieved": [
+      {"id": "linear-definition", "blockType": "paragraph"},
+      {"id": "linear-example", "blockType": "paragraph"}
+    ]
+  },
+  {
+    "query": "表格中第二季度销量",
+    "relevantIds": ["sales-table", "sales-summary"],
+    "forbiddenIds": ["other-user-private"],
+    "expectedBlockTypes": ["table"],
+    "retrieved": [
+      {"id": "sales-table", "blockType": "table"},
+      {"id": "sales-summary", "blockType": "paragraph"}
+    ]
+  },
+  {
+    "query": "图中最高点及单位",
+    "relevantIds": ["chart-peak", "chart-caption"],
+    "forbiddenIds": ["other-user-private"],
+    "expectedBlockTypes": ["chart"],
+    "retrieved": [
+      {"id": "chart-peak", "blockType": "chart"},
+      {"id": "chart-caption", "blockType": "paragraph"}
+    ]
+  },
+  {
+    "query": "公式适用条件",
+    "relevantIds": ["formula-condition"],
+    "forbiddenIds": ["other-user-private"],
+    "expectedBlockTypes": ["formula"],
+    "retrieved": [
+      {"id": "formula-condition", "blockType": "formula"}
+    ]
+  }
+]

@@ -1,0 +1,32 @@
+{
+  "cases": [
+    {
+      "id": "simple_text_pdf",
+      "path": "generated/simple_text.pdf",
+      "content_type": "application/pdf",
+      "expected_outcome": "success",
+      "expected_text": "Computer Networks TCP provides reliable ordered byte-stream delivery. Slow start grows the congestion window during early transmission."
+    },
+    {
+      "id": "two_page_pdf",
+      "path": "generated/two_pages.pdf",
+      "content_type": "application/pdf",
+      "expected_outcome": "success",
+      "expected_text": "Chapter One A router forwards packets between networks. Chapter Two HTTP is an application-layer protocol."
+    },
+    {
+      "id": "table_docx",
+      "path": "generated/table_document.docx",
+      "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "expected_outcome": "success",
+      "expected_text": "Network Review TCP slow start increases the congestion window during early transmission. Protocol Layer TCP Transport"
+    },
+    {
+      "id": "scanned_pdf",
+      "path": "generated/scanned_no_text.pdf",
+      "content_type": "application/pdf",
+      "expected_outcome": "ocr_required",
+      "expected_text": ""
+    }
+  ]
+}

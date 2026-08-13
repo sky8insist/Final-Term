@@ -1,0 +1,18 @@
+{
+  "cases": [
+    {
+      "id": "tcp_slow_start",
+      "question": "What changes during TCP slow start?",
+      "expectedKeywords": ["congestion window", "grows"],
+      "expectedDocument": "simple_text_pdf"
+    },
+    {
+      "id": "http_layer",
+      "question": "At which layer is HTTP used?",
+      "expectedKeywords": ["application-layer"],
+      "expectedDocument": "two_page_pdf",
+      "expectedPage": 2
+    }
+  ]
+}
+

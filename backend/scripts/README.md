@@ -33,7 +33,7 @@ If the local database has not applied all migrations, run:
 .\.venv\Scripts\python.exe scripts\e2e_acceptance.py --apply-migrations
 ```
 
-Required configuration is read from `backend/.env` unless supplied explicitly:
+Required configuration is read from the project-root `.env` unless supplied explicitly:
 
 - `SUPABASE_URL`
 - `SUPABASE_ANON_KEY`

@@ -1,4 +1,5 @@
 import pytest
+from pathlib import Path
 from fastapi.testclient import TestClient
 
 from app.api.deps import get_current_user
@@ -11,6 +12,21 @@ from app.services import lightrag_service, retrieval_service
 client = TestClient(app)
 USER_ID = "00000000-0000-0000-0000-000000000001"
 SUBJECT_ID = "00000000-0000-0000-0000-000000000010"
+
+
+def test_offline_tokenizer_round_trip():
+    tokenizer = lightrag_service._UnicodeCodepointTokenizer()
+    content = "线性代数 and emoji 🧠"
+
+    assert tokenizer.decode(tokenizer.encode(content)) == content
+
+
+def test_lightrag_relative_working_dir_is_repository_relative(monkeypatch):
+    monkeypatch.setattr(settings, "lightrag_working_dir", "backend/data/lightrag")
+
+    assert lightrag_service._resolve_working_dir() == (
+        lightrag_service.PROJECT_ROOT / Path("backend/data/lightrag")
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -112,6 +128,19 @@ def test_extract_chunk_markers_deduplicates_citations():
     assert citations[1]["filename"] == "other.pdf"
 
 
+def test_extract_chunk_markers_preserves_block_location():
+    citations = lightrag_service.extract_chunk_markers(
+        "[material_id=mat-1 filename=lecture.pdf chunk_index=3 "
+        "block_id=block-7 block_type=paragraph page_number=4 "
+        "start_time=- end_time=-]\nsource text"
+    )
+
+    assert citations[0]["blockId"] == "block-7"
+    assert citations[0]["blockType"] == "paragraph"
+    assert citations[0]["pageNumber"] == 4
+    assert citations[0]["startTime"] is None
+
+
 def test_retrieval_search_requires_login():
     response = client.post(
         "/retrieval/search",
@@ -161,3 +190,69 @@ def test_retrieval_search_foreign_subject_returns_404(monkeypatch):
     )
 
     assert response.status_code == 404
+
+
+def test_retrieval_degrades_to_keyword_when_lightrag_is_unavailable(monkeypatch):
+    monkeypatch.setattr(retrieval_service, "get_subject", lambda **_: {})
+    monkeypatch.setattr(retrieval_service, "_get_subject_embedding_dimension", lambda **_: 2)
+
+    def fail_lightrag(**_):
+        raise lightrag_service.LightRAGServiceError("offline")
+
+    class Rpc:
+        def execute(self):
+            return type("Response", (), {"data": [{
+                "id": "block-1", "material_id": "mat-1", "filename": "table.pdf",
+                "block_type": "table", "content_text": "第二季度销量为20",
+                "structured_data": {"rows": [["Q2", "20"]]}, "page_number": 3,
+                "bounding_box": {"x0": 1}, "start_time": None, "end_time": None,
+                "confidence": 0.9, "rank": 0.8,
+            }]})()
+
+    class Client:
+        def rpc(self, _name, _params):
+            return Rpc()
+
+    monkeypatch.setattr(retrieval_service, "search_context", fail_lightrag)
+    monkeypatch.setattr(retrieval_service, "get_supabase_client", lambda: Client())
+    monkeypatch.setattr(
+        retrieval_service, "embed_texts",
+        lambda _texts: (_ for _ in ()).throw(retrieval_service.EmbeddingError("offline")),
+    )
+    result = retrieval_service.search_subject_context(
+        user_id=USER_ID, subject_id=SUBJECT_ID, question="第二季度销量",
+        block_types=["table"],
+    )
+    assert result["citations"][0]["blockType"] == "table"
+    assert result["citations"][0]["pageNumber"] == 3
+    assert "lightrag_unavailable" in result["retrieval"]["warnings"]
+
+
+def test_vector_retrieval_preserves_content_block_location(monkeypatch):
+    monkeypatch.setattr(retrieval_service, "get_subject", lambda **_: {})
+    monkeypatch.setattr(retrieval_service, "_get_subject_embedding_dimension", lambda **_: 2)
+    monkeypatch.setattr(retrieval_service, "search_context", lambda **_: ("workspace", ""))
+    monkeypatch.setattr(retrieval_service, "get_supabase_client", lambda: type("Client", (), {
+        "rpc": lambda self, *_args, **_kwargs: type("Rpc", (), {
+            "execute": lambda self: type("Response", (), {"data": []})(),
+        })(),
+    })())
+    monkeypatch.setattr(retrieval_service, "embed_texts", lambda _texts: [[0.1, 0.2]])
+    monkeypatch.setattr(retrieval_service, "search_chunk_vectors", lambda **_: [{
+        "id": "chunk-1", "material_id": "mat-1", "content_block_id": "block-1",
+        "filename": "lecture.pdf", "chunk_index": 0, "content": "traceable text",
+        "block_type": "paragraph", "page_number": 5,
+        "bounding_box": {"x0": 10, "y0": 20, "x1": 100, "y1": 40},
+        "start_time": None, "end_time": None,
+        "metadata": {"confidence": 0.92}, "score": 0.88,
+    }])
+
+    result = retrieval_service.search_subject_context(
+        user_id=USER_ID, subject_id=SUBJECT_ID, question="定位内容",
+    )
+
+    citation = result["citations"][0]
+    assert citation["blockId"] == "block-1"
+    assert citation["pageNumber"] == 5
+    assert citation["boundingBox"]["x0"] == 10
+    assert citation["confidence"] == 0.92

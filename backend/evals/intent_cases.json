@@ -1,0 +1,18 @@
+[
+  {"input":"请把第三章整理成思维导图","expected":"generate_mind_map"},
+  {"input":"这张柱状图的趋势是什么","expected":"explain_chart"},
+  {"input":"给我生成一份模拟试卷","expected":"generate_exam"},
+  {"input":"分析我为什么做错这道题","expected":"review_wrong_answers"},
+  {"input":"距离考试七天怎么安排","expected":"build_study_plan"},
+  {"input":"第三行第二列说明了啥","expected":"analyze_table"},
+  {"input":"这个公式到底怎么推出来的","expected":"derive_formula"},
+  {"input":"给我出几题练练手","expected":"generate_practice"},
+  {"input":"把这一章做成问答卡片","expected":"generate_flashcards"},
+  {"input":"看看我现在掌握得咋样","expected":"show_progress"},
+  {"input":"帮我批改这份答案","expected":"grade_answer"},
+  {"input":"比较一下 TCP 和 UDP 的区别","expected":"compare"},
+  {"input":"联网查一下最新资料","expected":"external_research"},
+  {"input":"我没听懂特征值，讲讲","expected":"explain_concept"},
+  {"input":"总结第三章并生成思维导图","expected":"generate_mind_map","expectedSecondary":"summarize"},
+  {"input":"帮我一下","expected":"qa","needsClarification":true}
+]

@@ -85,3 +85,39 @@ def upsert_vectors(collection: str, vectors: list[dict]) -> dict:
 
 def search_vectors(collection: str, query_vector: list[float], limit: int = 5) -> list[dict]:
     return []
+
+
+def search_chunk_vectors(
+    *, user_id: str, subject_id: str, query_vector: list[float], limit: int,
+    material_ids: list[str] | None = None,
+) -> list[dict]:
+    if not settings.database_url:
+        raise VectorStoreError("DATABASE_URL is not configured")
+    conditions = ["mc.user_id = %s", "mc.subject_id = %s", "mc.embedding is not null"]
+    filter_params: list = [user_id, subject_id]
+    if material_ids:
+        conditions.append("mc.material_id = any(%s::uuid[])")
+        filter_params.append(material_ids)
+    vector_literal = _vector_literal(query_vector)
+    params = [vector_literal, *filter_params, vector_literal, vector_literal, limit]
+    sql = f"""
+        select mc.id, mc.material_id, mc.content_block_id, m.filename,
+               mc.chunk_index, mc.content, mc.block_type, mc.page_number,
+               mc.bounding_box, mc.start_time, mc.end_time, mc.metadata,
+               1 - (mc.embedding <=> %s::vector) as score
+        from public.material_chunks mc
+        join public.materials m on m.id = mc.material_id
+        where {' and '.join(conditions)}
+          and m.status = 'ready'
+          and vector_dims(mc.embedding) = vector_dims(%s::vector)
+        order by mc.embedding <=> %s::vector
+        limit %s
+    """
+    try:
+        with psycopg.connect(settings.database_url) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(sql, params)
+                columns = [description.name for description in cursor.description]
+                return [dict(zip(columns, row, strict=True)) for row in cursor.fetchall()]
+    except psycopg.Error as exc:
+        raise VectorStoreError("Vector search failed") from exc

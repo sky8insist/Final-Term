@@ -17,6 +17,18 @@ def _to_citation(item: dict) -> dict:
         source_name=str(source_name),
         text=str(text),
         score=item.get("score"),
+        source_type=item.get("sourceType", item.get("source_type", "material")),
+        url=item.get("url"),
+        title=item.get("title"),
+        accessed_at=item.get("accessedAt", item.get("accessed_at")),
+        trust_level=item.get("trustLevel", item.get("trust_level")),
+        block_type=item.get("blockType", item.get("block_type")),
+        page_number=item.get("pageNumber", item.get("page_number")),
+        start_time=item.get("startTime", item.get("start_time")),
+        end_time=item.get("endTime", item.get("end_time")),
+        retrieval_source=item.get("retrievalSource", item.get("retrieval_source")),
+        bounding_box=item.get("boundingBox", item.get("bounding_box")),
+        structured_data=item.get("structuredData", item.get("structured_data")),
     ).model_dump(by_alias=True)
 
 
@@ -69,6 +81,7 @@ def insert_chat_message(
     role: str,
     content: str,
     citations: list[dict] | None = None,
+    session_id: str | None = None,
 ) -> dict:
     payload = {
         "user_id": user_id,
@@ -76,6 +89,7 @@ def insert_chat_message(
         "role": role,
         "content": content.strip(),
         "citations": citations or [],
+        "session_id": session_id,
     }
     response = (
         get_supabase_client()
@@ -94,12 +108,14 @@ def record_qa_history(
     question: str,
     answer: str,
     citations: list[dict],
+    session_id: str | None = None,
 ) -> dict:
     insert_chat_message(
         user_id=user_id,
         subject_id=subject_id,
         role="user",
         content=question,
+        session_id=session_id,
     )
     return insert_chat_message(
         user_id=user_id,
@@ -107,6 +123,7 @@ def record_qa_history(
         role="assistant",
         content=answer,
         citations=citations,
+        session_id=session_id,
     )
 
 

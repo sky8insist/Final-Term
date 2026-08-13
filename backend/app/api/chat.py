@@ -17,6 +17,7 @@ async def ask_question(
         user_id=current_user.id,
         subject_id=payload.subject_id,
         question=payload.question,
+        session_id=payload.session_id,
     )
 
 

@@ -4,11 +4,19 @@ from fastapi.testclient import TestClient
 from app.api.deps import get_current_user
 from app.config.settings import settings
 from app.main import app
+from app.services.file_service import normalized_upload_content_type
 from app.models.user import CurrentUser
 from app.services import material_service
 
 
 client = TestClient(app)
+
+
+def test_upload_type_can_be_inferred_for_browser_audio_without_mime():
+    from io import BytesIO
+    from starlette.datastructures import Headers, UploadFile
+    file = UploadFile(BytesIO(b"....ftypM4A "), filename="lecture.m4a", headers=Headers())
+    assert normalized_upload_content_type(file) == "audio/x-m4a"
 USER_ID = "00000000-0000-0000-0000-000000000001"
 SUBJECT_ID = "00000000-0000-0000-0000-000000000010"
 MATERIAL_ID = "00000000-0000-0000-0000-000000000020"
@@ -38,6 +46,10 @@ class FakeQuery:
         self.filters: list[tuple[str, str]] = []
 
     def insert(self, payload):
+        self.payload = payload
+        return self
+
+    def upsert(self, payload, on_conflict=None):
         self.payload = payload
         return self
 
@@ -130,6 +142,14 @@ class FakeClient:
 def fake_client(monkeypatch):
     fake = FakeClient()
     monkeypatch.setattr(material_service, "get_supabase_client", lambda: fake)
+    monkeypatch.setattr(
+        material_service,
+        "insert_content_blocks",
+        lambda **kwargs: [
+            {"id": f"00000000-0000-0000-0000-00000000005{index}", **block}
+            for index, block in enumerate(kwargs["blocks"])
+        ],
+    )
     return fake
 
 
@@ -155,6 +175,17 @@ def test_upload_rejects_unsupported_file_type(monkeypatch):
 
     assert response.status_code == 400
     assert response.json()["detail"] == "Unsupported file type"
+
+
+def test_upload_rejects_declared_pdf_with_non_pdf_content(monkeypatch):
+    use_test_user()
+    monkeypatch.setattr(material_service, "get_subject", lambda **_: {})
+    response = client.post(
+        "/materials/upload", data={"subject_id": SUBJECT_ID},
+        files={"file": ("fake.pdf", b"not actually a pdf", "application/pdf")},
+    )
+    assert response.status_code == 400
+    assert "does not match" in response.json()["detail"]
 
 
 def test_upload_rejects_file_over_max_size(monkeypatch):

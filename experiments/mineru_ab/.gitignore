@@ -1,0 +1,9 @@
+.env
+fixtures/generated/*
+!fixtures/generated/.gitkeep
+results/*
+!results/.gitkeep
+__pycache__/
+.pytest_cache/
+.tmp/
+*.py[cod]

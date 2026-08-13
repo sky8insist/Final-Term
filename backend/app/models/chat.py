@@ -15,11 +15,24 @@ class Citation(BaseModel):
     )
     text: str
     score: float | None = None
+    source_type: Literal["material", "external"] = Field(default="material", serialization_alias="sourceType")
+    url: str | None = None
+    title: str | None = None
+    accessed_at: str | None = Field(default=None, serialization_alias="accessedAt")
+    trust_level: str | None = Field(default=None, serialization_alias="trustLevel")
+    block_type: str | None = Field(default=None, serialization_alias="blockType")
+    page_number: int | None = Field(default=None, serialization_alias="pageNumber")
+    start_time: float | None = Field(default=None, serialization_alias="startTime")
+    end_time: float | None = Field(default=None, serialization_alias="endTime")
+    retrieval_source: str | None = Field(default=None, serialization_alias="retrievalSource")
+    bounding_box: dict | None = Field(default=None, serialization_alias="boundingBox")
+    structured_data: dict | None = Field(default=None, serialization_alias="structuredData")
 
 
 class ChatRequest(BaseModel):
     subject_id: str = Field(validation_alias="subjectId")
     question: str = Field(max_length=4000)
+    session_id: str | None = Field(default=None, validation_alias="sessionId")
 
     @field_validator("question")
     @classmethod

@@ -1,0 +1,41 @@
+[
+  {
+    "capability": "qa",
+    "sample": {
+      "answer": "线性无关意味着只有全零系数能使线性组合为零。",
+      "contextAvailable": true,
+      "allowedCitationIds": ["linear-definition"],
+      "citations": [{"id": "linear-definition", "sourceName": "线性代数.pdf"}]
+    }
+  },
+  {
+    "capability": "ocr",
+    "sample": {
+      "text": "第二季度销量 20",
+      "pageNumber": 3,
+      "confidence": 0.55,
+      "needsReview": true
+    }
+  },
+  {
+    "capability": "exam",
+    "sample": {
+      "expectedCount": 2,
+      "totalPoints": 20,
+      "questions": [
+        {"stem": "定义线性无关。", "points": 10, "correctAnswer": "定义", "citationIds": ["linear-definition"]},
+        {"stem": "判断给定向量组是否线性无关。", "points": 10, "correctAnswer": "线性无关", "citationIds": ["linear-example"]}
+      ]
+    }
+  },
+  {
+    "capability": "grading",
+    "sample": {
+      "repeatScores": [8.0, 8.0, 8.5],
+      "maxScore": 10,
+      "maxStdDev": 0.5,
+      "rubricBound": true,
+      "feedback": "定义正确，但缺少对全零系数唯一性的说明。"
+    }
+  }
+]

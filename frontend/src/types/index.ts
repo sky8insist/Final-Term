@@ -1,0 +1,10 @@
+export type Subject = { id: string; name: string; description: string; progress: number; mastery: number; examDate?: string | null };
+export type Material = { id: string; subjectId: string; name: string; type: string; status: 'queued' | 'parsing' | 'indexed' | 'failed'; size: number; uploadedAt: string; errorMessage?: string | null };
+export type ProcessingTask = { id: string; materialId?: string | null; status: 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled'; stage: string; progress: number; errorMessage?: string | null };
+export type Citation = { id: string; sourceName: string; page?: number; text: string };
+export type ChatMessage = { id: string; role: 'user' | 'assistant'; content: string; createdAt: string; citations?: Citation[] };
+export type StudyTask = { id: string; subjectId: string; title: string; time: string; completed: boolean };
+export type DashboardData = { subjects: Subject[]; todayTasks: StudyTask[]; stats: { studyMinutes: number; completedTasks: number; streakDays: number } };
+export type MindMapData = { nodes: Array<{ id: string; label: string; level: number; mastery: number }>; edges: Array<{ from: string; to: string }> };
+export type Exam = { id: string; title: string; score?: number | null; questionCount: number; createdAt?: string; difficulty?: string; status?: string };
+export type Mistake = { id: string; topic: string; question: string; myAnswer: string; correctAnswer: string; reason: string; createdAt: string };
