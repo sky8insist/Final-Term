@@ -51,7 +51,7 @@ def test_embedding_service_parses_openai_compatible_response(monkeypatch):
     monkeypatch.setattr(
         embedding_service.httpx,
         "Client",
-        lambda timeout: FakeHttpClient(response, calls),
+        lambda timeout, **_kwargs: FakeHttpClient(response, calls),
     )
 
     vectors = embedding_service.embed_texts(["one", "two"])
@@ -74,7 +74,7 @@ def test_embedding_service_rejects_count_mismatch(monkeypatch):
     monkeypatch.setattr(
         embedding_service.httpx,
         "Client",
-        lambda timeout: FakeHttpClient(response, []),
+        lambda timeout, **_kwargs: FakeHttpClient(response, []),
     )
 
     with pytest.raises(EmbeddingError, match="count"):
@@ -94,7 +94,7 @@ def test_embedding_service_rejects_inconsistent_dimensions(monkeypatch):
     monkeypatch.setattr(
         embedding_service.httpx,
         "Client",
-        lambda timeout: FakeHttpClient(response, []),
+        lambda timeout, **_kwargs: FakeHttpClient(response, []),
     )
 
     with pytest.raises(EmbeddingError, match="dimensions"):

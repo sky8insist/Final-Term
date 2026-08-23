@@ -1,11 +1,18 @@
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
+from uuid import UUID
 
 from app.api.deps import get_current_user
-from app.models.artifact import ArtifactGenerateRequest, ArtifactScopedGenerateRequest, ArtifactUpdateRequest
+from app.models.artifact import (
+    ArtifactGenerateRequest,
+    ArtifactScopedGenerateRequest,
+    ArtifactUpdateRequest,
+    MindMapGenerateRequest,
+)
 from app.models.user import CurrentUser
 from app.services import artifact_service
+from app.mindmap import service as mindmap_service
 
 router = APIRouter()
 
@@ -24,9 +31,20 @@ async def _generate_as(payload: ArtifactScopedGenerateRequest, artifact_type: st
 
 
 @router.post("/mind-maps")
-async def generate_mind_map(payload: ArtifactScopedGenerateRequest,
+async def generate_mind_map(payload: MindMapGenerateRequest,
                             current_user: CurrentUser = Depends(get_current_user)):
-    return await _generate_as(payload, "mind_map", current_user.id)
+    return await mindmap_service.generate_mind_map(
+        user_id=current_user.id,
+        subject_id=payload.subject_id,
+        mode=payload.mode,
+        query=payload.query,
+        topic_id=payload.topic_id,
+        chapter_id=payload.chapter_id,
+        max_depth=payload.max_depth,
+        include_mastery=payload.include_mastery,
+        material_ids=payload.material_ids,
+        count=payload.count,
+    )
 
 
 @router.post("/outlines")
@@ -52,10 +70,10 @@ async def generate_artifact(payload: ArtifactGenerateRequest,
 
 
 @router.get("")
-def list_artifacts(subject_id: str, artifact_type: str | None = None,
+def list_artifacts(subject_id: UUID, artifact_type: str | None = None,
                    current_user: CurrentUser = Depends(get_current_user)):
     return artifact_service.list_artifacts(
-        user_id=current_user.id, subject_id=subject_id, artifact_type=artifact_type,
+        user_id=current_user.id, subject_id=str(subject_id), artifact_type=artifact_type,
     )
 
 

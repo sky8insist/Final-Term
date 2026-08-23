@@ -82,6 +82,7 @@ def insert_chat_message(
     content: str,
     citations: list[dict] | None = None,
     session_id: str | None = None,
+    metadata: dict | None = None,
 ) -> dict:
     payload = {
         "user_id": user_id,
@@ -90,14 +91,23 @@ def insert_chat_message(
         "content": content.strip(),
         "citations": citations or [],
         "session_id": session_id,
+        "metadata": metadata or {},
     }
-    response = (
-        get_supabase_client()
-        .table("chat_messages")
-        .insert(payload)
-        .select("id,subject_id,role,content,citations,created_at")
-        .execute()
-    )
+    client = get_supabase_client()
+    try:
+        response = (
+            client.table("chat_messages").insert(payload)
+            .select("id,subject_id,role,content,citations,created_at").execute()
+        )
+    except Exception as exc:
+        if "metadata" not in str(exc).casefold():
+            raise
+        # Rolling-deploy compatibility before migration 026 reaches the DB.
+        payload.pop("metadata", None)
+        response = (
+            client.table("chat_messages").insert(payload)
+            .select("id,subject_id,role,content,citations,created_at").execute()
+        )
     return _to_chat_message(response.data[0])
 
 
@@ -109,6 +119,8 @@ def record_qa_history(
     answer: str,
     citations: list[dict],
     session_id: str | None = None,
+    user_metadata: dict | None = None,
+    assistant_metadata: dict | None = None,
 ) -> dict:
     insert_chat_message(
         user_id=user_id,
@@ -116,6 +128,7 @@ def record_qa_history(
         role="user",
         content=question,
         session_id=session_id,
+        metadata=user_metadata,
     )
     return insert_chat_message(
         user_id=user_id,
@@ -124,6 +137,7 @@ def record_qa_history(
         content=answer,
         citations=citations,
         session_id=session_id,
+        metadata=assistant_metadata,
     )
 
 

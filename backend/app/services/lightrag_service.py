@@ -192,15 +192,23 @@ def index_material(
     try:
         with _RAG_ENV_LOCK:
             return asyncio.run(
-                _index_material_async(
-                    user_id=user_id,
-                    subject_id=subject_id,
-                    material_id=material_id,
-                    filename=filename,
-                    chunks=chunks,
-                    embedding_dimension=embedding_dimension,
+                asyncio.wait_for(
+                    _index_material_async(
+                        user_id=user_id,
+                        subject_id=subject_id,
+                        material_id=material_id,
+                        filename=filename,
+                        chunks=chunks,
+                        embedding_dimension=embedding_dimension,
+                    ),
+                    timeout=settings.lightrag_index_timeout_seconds,
                 )
             )
+    except TimeoutError as exc:
+        timeout_seconds = settings.lightrag_index_timeout_seconds
+        raise LightRAGServiceError(
+            f"LightRAG indexing timed out after {timeout_seconds:g} seconds"
+        ) from exc
     except Exception as exc:
         if isinstance(exc, LightRAGServiceError):
             raise

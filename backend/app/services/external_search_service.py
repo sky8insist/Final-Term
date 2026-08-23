@@ -42,7 +42,7 @@ async def search_web_async(query: str, max_results: int | None = None) -> list[d
         raise ExternalSearchError("Web search is not configured")
     limit = min(max(max_results or settings.web_search_max_results, 1), 10)
     try:
-        async with httpx.AsyncClient(timeout=30) as client:
+        async with httpx.AsyncClient(timeout=settings.web_search_timeout_seconds) as client:
             response = await client.post(
                 settings.web_search_url,
                 headers={"Authorization": f"Bearer {settings.web_search_api_key}", "Content-Type": "application/json"},
@@ -74,7 +74,8 @@ async def search_wikipedia_async(query: str, max_results: int | None = None) -> 
     endpoint = f"https://{settings.wikipedia_language}.wikipedia.org/w/api.php"
     try:
         async with httpx.AsyncClient(
-            timeout=20, headers={"User-Agent": "ExamAI/1.0 educational-assistant"},
+            timeout=settings.wikipedia_timeout_seconds,
+            headers={"User-Agent": "ExamAI/1.0 educational-assistant"},
         ) as client:
             response = await client.get(endpoint, params={
                 "action": "query", "generator": "search", "gsrsearch": query,

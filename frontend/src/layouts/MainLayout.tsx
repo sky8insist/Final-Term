@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
-import { AlertCircle, BookOpen, Calendar, ChevronLeft, FileText, Info, LayoutDashboard, LogOut, Menu, MessageSquare, Network, PenTool } from 'lucide-react';
+import { BookOpen, Calendar, ChevronLeft, FileText, Info, LayoutDashboard, LogOut, Menu, MessageSquare, Network, PenTool } from 'lucide-react';
 import { useAppStore } from '../stores/useAppStore';
 import { cn } from '../utils/cn';
 import { useAuth } from '../auth/AuthProvider';
@@ -12,7 +12,6 @@ const links = [
   { path: '/study-room', label: 'AI 学习室', icon: MessageSquare },
   { path: '/mind-map', label: '思维导图', icon: Network },
   { path: '/exams', label: '练习考试', icon: PenTool },
-  { path: '/wrong-questions', label: '错题本', icon: AlertCircle },
   { path: '/plan', label: '复习计划', icon: Calendar },
 ];
 
@@ -42,7 +41,7 @@ export function MainLayout() {
     }
   }
   return <div className="flex h-screen overflow-hidden bg-slate-50 text-slate-900">
-    <aside className={cn('flex shrink-0 flex-col border-r border-slate-200 bg-white transition-all', isSidebarOpen ? 'w-64' : 'w-18')}>
+    <aside className={cn('app-sidebar flex shrink-0 flex-col border-r border-slate-200 bg-white transition-all', isSidebarOpen ? 'w-64' : 'w-18')}>
       <div className="flex h-16 items-center justify-between border-b border-slate-100 px-4">
         {isSidebarOpen && <span className="font-bold text-slate-800">AI 学习工作台</span>}
         <button aria-label="切换侧边栏" onClick={toggleSidebar} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100">{isSidebarOpen ? <ChevronLeft size={20}/> : <Menu size={20}/>}</button>

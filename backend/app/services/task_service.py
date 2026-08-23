@@ -13,7 +13,9 @@ def _serialize(row: dict) -> dict:
     return ProcessingTask(**row).model_dump(by_alias=True)
 
 
-def create_task(*, user_id: str, subject_id: str, material_id: str, idempotency_key: str) -> dict:
+def create_task(*, user_id: str, subject_id: str, material_id: str | None,
+                idempotency_key: str, task_type: str = "material_ingestion",
+                metadata: dict | None = None, max_attempts: int | None = None) -> dict:
     client = get_supabase_client()
     existing = (
         client.table("processing_tasks")
@@ -31,8 +33,10 @@ def create_task(*, user_id: str, subject_id: str, material_id: str, idempotency_
             "user_id": user_id,
             "subject_id": subject_id,
             "material_id": material_id,
+            "task_type": task_type,
             "idempotency_key": idempotency_key,
-            "max_attempts": settings.task_max_retries,
+            "max_attempts": max_attempts or settings.task_max_retries,
+            "metadata": metadata or {},
         })
         .select(TASK_SELECT)
         .execute()

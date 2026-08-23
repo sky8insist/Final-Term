@@ -502,14 +502,11 @@ def process_material_bytes(
             error_message=str(exc),
         )
     except LightRAGServiceError as exc:
-        try:
-            if "embedding_dimension" in locals():
-                delete_material_index(
-                    user_id=user_id, subject_id=subject_id, material_id=material_row["id"],
-                    embedding_dimension=embedding_dimension,
-                )
-        except LightRAGServiceError:
-            pass
+        # LightRAG is an optional graph enhancement. At this point parsing,
+        # chunks and vector embeddings have already succeeded, so keep the
+        # material available through keyword/vector retrieval and record the
+        # graph failure separately. Cleanup is intentionally avoided here:
+        # the same unavailable backend could otherwise block this fallback.
         _update_lightrag_index_status(
             client=client,
             user_id=user_id,
@@ -521,9 +518,10 @@ def process_material_bytes(
             client=client,
             user_id=user_id,
             material_id=material_row["id"],
-            status_value="failed",
-            error_message=str(exc),
+            status_value="ready",
         )
+        if on_stage:
+            on_stage("ready", 100)
     except Exception:
         material_row = _update_material_status(
             client=client,

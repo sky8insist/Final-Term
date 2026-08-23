@@ -1,4 +1,5 @@
 $projectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+. (Join-Path $projectRoot 'scripts\enable-utf8.ps1')
 $pidFile = Join-Path $projectRoot '.run\dev-processes.json'
 if (Test-Path $pidFile) {
     $items = @((Get-Content -Raw -LiteralPath $pidFile | ConvertFrom-Json))

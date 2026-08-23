@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
+import { syncWorkspaceOwner } from '../stores/useAppStore';
 
 type AuthContextValue = {
   session: Session | null;
@@ -31,12 +32,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let active = true;
     void supabase.auth.getSession().then(({ data }) => {
       if (!active) return;
+      syncWorkspaceOwner(data.session?.user.id ?? null);
       setSession(data.session);
       persistAccessToken(data.session);
       setIsLoading(false);
     });
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      syncWorkspaceOwner(nextSession?.user.id ?? null);
       setSession(nextSession);
       persistAccessToken(nextSession);
       setIsLoading(false);
@@ -56,6 +59,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signOut: async () => {
       await supabase.auth.signOut();
       persistAccessToken(null);
+      syncWorkspaceOwner(null);
     },
   }), [session, isLoading]);
 

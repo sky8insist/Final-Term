@@ -3,19 +3,12 @@ from fastapi.responses import Response
 
 from app.api.deps import get_current_user
 from app.models.exam import ExamGenerateRequest, SaveResponseRequest, StartAttemptRequest
-from pydantic import BaseModel, Field
+from uuid import UUID
 from app.models.user import CurrentUser
 from app.services import exam_service
+from app.services import exam_generation_service
 
 router = APIRouter()
-
-
-class WrongAnswerUpdate(BaseModel):
-    resolved: bool
-
-
-class VariationRequest(BaseModel):
-    count: int = Field(default=2, ge=1, le=10)
 
 
 @router.post("")
@@ -24,9 +17,21 @@ async def generate_exam(payload: ExamGenerateRequest,
     return await exam_service.generate_exam(user_id=current_user.id, payload=payload)
 
 
+@router.post("/generations", status_code=202)
+def queue_exam_generation(payload: ExamGenerateRequest,
+                          current_user: CurrentUser = Depends(get_current_user)):
+    task = exam_generation_service.create_generation_task(
+        user_id=current_user.id, payload=payload,
+    )
+    if task["status"] == "queued":
+        from app.worker.tasks import generate_exam
+        generate_exam.delay(task["id"])
+    return task
+
+
 @router.get("")
-def list_exams(subject_id: str, current_user: CurrentUser = Depends(get_current_user)):
-    return exam_service.list_exams(user_id=current_user.id, subject_id=subject_id)
+def list_exams(subject_id: UUID, current_user: CurrentUser = Depends(get_current_user)):
+    return exam_service.list_exams(user_id=current_user.id, subject_id=str(subject_id))
 
 
 @router.get("/{exam_id}")
@@ -71,27 +76,3 @@ def get_attempt(attempt_id: str, current_user: CurrentUser = Depends(get_current
 async def submit_attempt(attempt_id: str,
                          current_user: CurrentUser = Depends(get_current_user)):
     return await exam_service.submit_attempt(user_id=current_user.id, attempt_id=attempt_id)
-
-
-@router.get("/wrong-answers/{subject_id}")
-def wrong_answers(subject_id: str, resolved: bool | None = None,
-                  current_user: CurrentUser = Depends(get_current_user)):
-    return exam_service.list_wrong_answers(
-        user_id=current_user.id, subject_id=subject_id, resolved=resolved,
-    )
-
-
-@router.patch("/wrong-answers/{wrong_answer_id}")
-def update_wrong_answer(wrong_answer_id: str, payload: WrongAnswerUpdate,
-                        current_user: CurrentUser = Depends(get_current_user)):
-    return exam_service.resolve_wrong_answer(
-        user_id=current_user.id, wrong_answer_id=wrong_answer_id, resolved=payload.resolved,
-    )
-
-
-@router.post("/wrong-answers/{wrong_answer_id}/variations")
-async def wrong_answer_variations(wrong_answer_id: str, payload: VariationRequest,
-                                  current_user: CurrentUser = Depends(get_current_user)):
-    return await exam_service.generate_wrong_answer_variations(
-        user_id=current_user.id, wrong_answer_id=wrong_answer_id, count=payload.count,
-    )

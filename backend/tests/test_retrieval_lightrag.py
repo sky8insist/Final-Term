@@ -1,4 +1,5 @@
 import pytest
+import asyncio
 from pathlib import Path
 from fastapi.testclient import TestClient
 
@@ -89,6 +90,24 @@ def test_lightrag_index_uses_expected_workspace_and_storage(monkeypatch):
     assert "material_id=mat-1" in instance.inserted[0]["document"]
 
 
+def test_lightrag_index_has_a_hard_timeout(monkeypatch):
+    async def never_finishes(**_kwargs):
+        await asyncio.sleep(10)
+
+    monkeypatch.setattr(lightrag_service, "_index_material_async", never_finishes)
+    monkeypatch.setattr(settings, "lightrag_index_timeout_seconds", 0.01)
+
+    with pytest.raises(lightrag_service.LightRAGServiceError, match="timed out"):
+        lightrag_service.index_material(
+            user_id=USER_ID,
+            subject_id=SUBJECT_ID,
+            material_id="mat-1",
+            filename="notes.txt",
+            chunks=[{"chunk_index": 0, "content": "chunk text"}],
+            embedding_dimension=2,
+        )
+
+
 def test_lightrag_search_uses_only_context_query(monkeypatch):
     FakeLightRAG.instances = []
     monkeypatch.setattr(settings, "database_url", "postgresql://user:pass@localhost:5432/postgres")
@@ -141,6 +160,18 @@ def test_extract_chunk_markers_preserves_block_location():
     assert citations[0]["startTime"] is None
 
 
+@pytest.mark.parametrize(
+    ("question", "expected"),
+    [
+        ("What is strategy?", "strategy defined"),
+        ("Define competitive advantage", "competitive advantage defined"),
+        ("什么是战略？", "战略 定义"),
+    ],
+)
+def test_definition_questions_get_a_lexical_query_expansion(question, expected):
+    assert retrieval_service._definition_query(question) == expected
+
+
 def test_retrieval_search_requires_login():
     response = client.post(
         "/retrieval/search",
@@ -154,6 +185,7 @@ def test_retrieval_search_returns_citations(monkeypatch):
     use_test_user()
     monkeypatch.setattr(retrieval_service, "get_subject", lambda **_: {})
     monkeypatch.setattr(retrieval_service, "_get_subject_embedding_dimension", lambda **_: 2)
+    monkeypatch.setattr(retrieval_service, "_subject_has_lightrag_index", lambda **_: True)
     monkeypatch.setattr(
         retrieval_service,
         "search_context",

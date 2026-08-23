@@ -28,6 +28,7 @@ def _intent(message: str) -> str:
         (("闪卡",), "generate_flashcards"), (("表格",), "analyze_table"),
         (("图表",), "explain_chart"), (("公式", "推导"), "derive_formula"),
         (("提纲", "大纲"), "generate_outline"), (("总结",), "summarize"),
+        (("练习表现", "薄弱点", "错题", "做错"), "analyze_practice_performance"),
         (("进度", "掌握度"), "show_progress"), (("计划", "安排"), "build_study_plan"),
     ]
     return next((intent for words, intent in rules if any(word in message for word in words)), "qa")
@@ -45,6 +46,31 @@ def mock_json(prompt: str) -> dict:
         }
     citations = _citation_ids(prompt)
     citation = citations[0] if citations else "mock-source"
+    if "MIND_MAP_WORKFLOW_V2" in prompt:
+        focus_match = re.search(r"Focus Question:\s*(.+)", prompt)
+        mode_match = re.search(r"生成模式:\s*(question|topic|chapter)", prompt)
+        focus = focus_match.group(1).strip() if focus_match else "当前知识点如何理解？"
+        mode = mode_match.group(1) if mode_match else "question"
+        return {
+            "title": "核心知识结构", "focusQuestion": focus,
+            "summary": "围绕当前学习问题组织定义、关系与应用。",
+            "mode": mode, "evidenceInsufficient": False,
+            "nodes": [
+                {"id": "root", "parentId": None, "label": "核心问题", "type": "root",
+                 "importance": 1, "examImportance": "high", "mastery": None,
+                 "description": focus, "sourceIds": [], "order": 0},
+                {"id": "concept", "parentId": "root", "label": "核心概念", "type": "definition",
+                 "importance": 0.9, "examImportance": "high", "mastery": None,
+                 "description": "根据课程资料提炼的核心概念。", "sourceIds": [citation], "order": 1},
+                {"id": "relation", "parentId": "root", "label": "概念关系", "type": "comparison",
+                 "importance": 0.8, "examImportance": "medium", "mastery": None,
+                 "description": "核心概念之间的逻辑联系。", "sourceIds": [citation], "order": 2},
+            ],
+            "edges": [
+                {"source": "root", "target": "concept", "relation": "包含"},
+                {"source": "root", "target": "relation", "relation": "包含"},
+            ],
+        }
     if "类型：mind_map" in prompt:
         return {"title": "Mock 复习思维导图", "nodes": [
             {"id": "root", "parentId": None, "title": "核心知识", "description": "本地 Mock 根节点",
@@ -93,13 +119,6 @@ def mock_json(prompt: str) -> dict:
         points = float((re.search(r"满分不得超过([\d.]+)", prompt) or [None, "0"])[1])
         return {"earnedPoints": points, "isCorrect": True, "feedback": "Mock 评分通过",
                 "earnedCriteria": ["核心得分点"], "missingCriteria": [], "errorType": None}
-    if "针对错题生成" in prompt:
-        count = int((re.search(r"生成\s*(\d+)\s*道", prompt) or [None, "2"])[1])
-        return {"questions": [{
-            "questionType": "short_answer", "stem": f"Mock 变式题 {index + 1}",
-            "options": [], "correctAnswer": "Mock答案", "explanation": "Mock解析",
-            "knowledgeKey": "Mock相邻知识点", "difficulty": "medium", "citationIds": [citation],
-        } for index in range(count)]}
     if "复盘一次学习互动" in prompt:
         return {"eventType": "qa", "memoryCandidates": [], "skillCandidates": [], "summary": "Mock 会话复盘"}
     if "整理课程录音转写" in prompt:

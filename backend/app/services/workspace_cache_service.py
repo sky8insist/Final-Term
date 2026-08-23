@@ -19,7 +19,6 @@ RESOURCE_TTLS = {
     "chat": 86400,
     "mind-map": 86400,
     "exams": 900,
-    "mistakes": 900,
     "plan": 600,
     "workspace": 604800,
 }

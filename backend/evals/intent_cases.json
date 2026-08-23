@@ -2,7 +2,7 @@
   {"input":"请把第三章整理成思维导图","expected":"generate_mind_map"},
   {"input":"这张柱状图的趋势是什么","expected":"explain_chart"},
   {"input":"给我生成一份模拟试卷","expected":"generate_exam"},
-  {"input":"分析我为什么做错这道题","expected":"review_wrong_answers"},
+  {"input":"分析我为什么做错这道题","expected":"analyze_practice_performance"},
   {"input":"距离考试七天怎么安排","expected":"build_study_plan"},
   {"input":"第三行第二列说明了啥","expected":"analyze_table"},
   {"input":"这个公式到底怎么推出来的","expected":"derive_formula"},

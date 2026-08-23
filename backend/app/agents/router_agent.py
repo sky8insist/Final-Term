@@ -5,7 +5,7 @@ from app.services.llm_service import LLMServiceError, generate_json_async
 
 INTENTS = ["qa", "explain_concept", "summarize", "analyze_table", "explain_chart", "derive_formula",
            "compare", "generate_outline", "generate_mind_map", "generate_flashcards", "generate_practice",
-           "generate_exam", "grade_answer", "review_wrong_answers", "build_study_plan", "show_progress",
+           "generate_exam", "grade_answer", "analyze_practice_performance", "build_study_plan", "show_progress",
            "external_research"]
 
 
@@ -16,7 +16,7 @@ def _fallback(message: str) -> IntentDecision:
         (("闪卡", "卡片"), "generate_flashcards"), (("表格", "第几行", "第几列"), "analyze_table"),
         (("图表", "曲线图", "柱状图"), "explain_chart"), (("公式", "推导"), "derive_formula"),
         (("提纲", "大纲"), "generate_outline"), (("总结", "摘要"), "summarize"),
-        (("错题", "错因", "做错"), "review_wrong_answers"), (("计划", "怎么复习", "怎么安排"), "build_study_plan"),
+        (("练习表现", "薄弱点", "错题", "错因", "做错"), "analyze_practice_performance"), (("计划", "怎么复习", "怎么安排"), "build_study_plan"),
         (("进度", "掌握度", "掌握得", "学得怎么样"), "show_progress"), (("批改", "评分"), "grade_answer"),
         (("比较", "对比", "区别"), "compare"), (("联网", "网上查", "外部资料", "最新资料"), "external_research"),
         (("解释", "什么是", "没听懂", "讲讲"), "explain_concept"),

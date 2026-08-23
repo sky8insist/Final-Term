@@ -20,7 +20,6 @@ def test_workbench_pages_have_placeholder_data():
     assert client.get(f"/api/workbench/chat/{subject_id}").status_code == 200
     assert client.get(f"/api/workbench/mind-map/{subject_id}").status_code == 200
     assert client.get(f"/api/workbench/exams/{subject_id}").status_code == 200
-    assert client.get(f"/api/workbench/mistakes/{subject_id}").status_code == 200
     assert client.get(f"/api/workbench/plan?subject_id={subject_id}").status_code == 200
 
 

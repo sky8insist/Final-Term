@@ -33,7 +33,13 @@ async def generate_text_async(prompt: str, system_prompt: str | None = None, **k
 
     started_at = perf_counter()
     try:
-        data = await get_model_provider().post_json_async("chat/completions", payload, timeout=120)
+        data = await get_model_provider().post_json_async(
+            "chat/completions", payload, timeout=float(kwargs.get("timeout", 120)),
+        )
+    except httpx.TimeoutException as exc:
+        record_model_call(capability="chat", model_name=settings.llm_model, status="failed",
+                          started_at=started_at, error_code="timeout")
+        raise LLMServiceError("LLM API request timed out") from exc
     except (httpx.HTTPError, ProviderConfigurationError) as exc:
         record_model_call(capability="chat", model_name=settings.llm_model, status="failed",
                           started_at=started_at, error_code="http_error")
@@ -56,6 +62,7 @@ async def generate_json_async(prompt: str, system_prompt: str | None = None, **k
         return mock_json(prompt)
     content = await generate_text_async(
         prompt, system_prompt=system_prompt, temperature=kwargs.get("temperature", 0),
+        timeout=kwargs.get("timeout", 120),
     )
     try:
         result = json.loads(repair_json(content))

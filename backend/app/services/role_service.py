@@ -19,10 +19,10 @@ ROLE_CONFIGS = {
         "instruction": "按照考试口径提问；交卷前不得泄露答案、解析或暗示，明确时间和得分点。",
         "suggestions": ["提交答案", "下一题"],
     },
-    "mistake_coach": {
-        "name": "错题教练模式",
-        "instruction": "区分概念、审题、计算、推理和表达错误；先定位根因，再给出针对性变式题。",
-        "suggestions": ["生成同类变式题", "查看错误根因"],
+    "performance_coach": {
+        "name": "练习表现分析模式",
+        "instruction": "结合正确率、掌握度、近期表现和学习互动定位薄弱知识点，并给出可执行的下一步。",
+        "suggestions": ["生成专项练习", "生成复习计划"],
     },
     "academic": {
         "name": "专业解析模式",
@@ -41,7 +41,7 @@ _ROLE_POLICIES = {
     "crash_course": ("exam_sprint", "low", True, "exam-focused", "all factual claims"),
     "socratic": ("guided_reasoning", "high", False, "adaptive", "hints and corrections"),
     "examiner": ("mock_exam", "medium", False, "exam-standard", "questions and post-submit analysis"),
-    "mistake_coach": ("error_review", "high", True, "diagnostic", "diagnosis and variations"),
+    "performance_coach": ("performance_analysis", "high", True, "diagnostic", "practice and dialogue signals"),
     "academic": ("deep_study", "low", True, "advanced", "all important assertions"),
     "sprint_planner": ("planning", "medium", True, "strategic", "mastery and material evidence"),
 }
@@ -59,8 +59,8 @@ def recommend_role(*, requested: str, profile: dict, intent: str) -> tuple[str, 
         key = requested
     elif intent in {"generate_exam", "grade_answer"}:
         key = "examiner"
-    elif intent == "review_wrong_answers":
-        key = "mistake_coach"
+    elif intent == "analyze_practice_performance":
+        key = "performance_coach"
     elif intent in {"build_study_plan", "show_progress"}:
         key = "sprint_planner"
     elif profile.get("preferredRole") in ROLE_CONFIGS:

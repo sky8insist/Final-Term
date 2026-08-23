@@ -106,11 +106,6 @@ async def create_exam(payload: ExamCreate):
     return {"id": str(uuid4()), "title": "AI 生成练习", "score": None, "questionCount": payload.question_count, "difficulty": payload.difficulty, "status": "ready"}
 
 
-@router.get("/mistakes/{subject_id}")
-async def mistakes(subject_id: str):
-    return [{"id": "w1", "topic": "核心概念", "question": "请说明该知识点的基本原理。", "myAnswer": "概念理解不完整", "correctAnswer": "应结合定义、条件与应用场景完整说明。", "reason": "回答缺少适用条件，是当前需要优先巩固的部分。", "createdAt": "2026-08-01"}]
-
-
 @router.get("/plan")
 async def plan(subject_id: str | None = None):
     rows = TASKS if not subject_id else [item for item in TASKS if item["subjectId"] == subject_id]

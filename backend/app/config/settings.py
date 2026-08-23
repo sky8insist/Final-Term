@@ -19,6 +19,10 @@ class Settings(BaseSettings):
 
     openai_api_key: str | None = Field(default=None, validation_alias="EXAMAI_OPENAI_API_KEY")
     model_provider: str = Field(default="openai_compatible", validation_alias="EXAMAI_MODEL_PROVIDER")
+    model_provider_trust_env: bool = Field(
+        default=False,
+        validation_alias="EXAMAI_MODEL_PROVIDER_TRUST_ENV",
+    )
     openai_base_url: str = Field(
         default="https://api.siliconflow.cn/v1",
         validation_alias="EXAMAI_OPENAI_BASE_URL",
@@ -39,6 +43,9 @@ class Settings(BaseSettings):
     audio_min_silence_seconds: float = 0.7
 
     lightrag_working_dir: str = "backend/data/lightrag"
+    # Knowledge-graph extraction is an optional enhancement. Bound it so a
+    # slow model provider cannot keep an otherwise searchable material stuck.
+    lightrag_index_timeout_seconds: float = Field(default=180.0, gt=0)
     default_answer_language: str = "zh-CN"
     max_upload_mb: int = 200
 
@@ -86,6 +93,12 @@ class Settings(BaseSettings):
     web_search_url: str | None = Field(default=None, validation_alias="EXAMAI_WEB_SEARCH_URL")
     web_search_api_key: str | None = Field(default=None, validation_alias="EXAMAI_WEB_SEARCH_API_KEY")
     web_search_max_results: int = 5
+    wikipedia_timeout_seconds: float = Field(default=3.0, gt=0, le=30)
+    web_search_timeout_seconds: float = Field(default=6.0, gt=0, le=60)
+    exam_batch_size: int = Field(default=4, ge=1, le=8)
+    exam_retrieval_timeout_seconds: float = Field(default=30.0, gt=5, le=120)
+    exam_batch_timeout_seconds: float = Field(default=60.0, gt=5, le=180)
+    exam_batch_retries: int = Field(default=1, ge=0, le=2)
     max_active_tasks_per_user: int = 3
     max_daily_upload_mb: int = 1000
     original_file_retention_days: int = 90

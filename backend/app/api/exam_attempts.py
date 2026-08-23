@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 
 from app.api.deps import get_current_user
-from app.models.exam import SaveResponseRequest, StartAttemptRequest
+from app.models.exam import ConfirmResponseRequest, SaveResponseRequest, StartAttemptRequest
 from app.models.user import CurrentUser
 from app.services import exam_service
 
@@ -30,6 +30,15 @@ def save_response(attempt_id: str, payload: SaveResponseRequest,
     return exam_service.save_response(
         user_id=current_user.id, attempt_id=attempt_id,
         question_id=payload.question_id, response_value=payload.response,
+    )
+
+
+@router.post("/{attempt_id}/questions/{question_id}/confirm")
+async def confirm_response(attempt_id: str, question_id: str, payload: ConfirmResponseRequest,
+                           current_user: CurrentUser = Depends(get_current_user)):
+    return await exam_service.confirm_response(
+        user_id=current_user.id, attempt_id=attempt_id,
+        question_id=question_id, response_value=payload.response,
     )
 
 

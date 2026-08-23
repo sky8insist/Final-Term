@@ -20,6 +20,8 @@ services:
     env_file:
       - path: ../.env
         required: false
+      - path: .env.worker
+        required: true
     environment:
       REDIS_URL: redis://redis:6379/0
     depends_on:
@@ -35,6 +37,8 @@ services:
     env_file:
       - path: ../.env
         required: false
+      - path: .env.worker
+        required: true
     environment:
       REDIS_URL: redis://redis:6379/0
     depends_on:

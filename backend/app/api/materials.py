@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, File, Form, UploadFile
+from uuid import UUID
 
 from app.api.deps import get_current_user
 from app.models.user import CurrentUser
@@ -9,10 +10,13 @@ router = APIRouter()
 
 @router.get("")
 def list_materials(
-    subject_id: str | None = None,
+    subject_id: UUID | None = None,
     current_user: CurrentUser = Depends(get_current_user),
 ):
-    return material_service.list_materials(user_id=current_user.id, subject_id=subject_id)
+    return material_service.list_materials(
+        user_id=current_user.id,
+        subject_id=str(subject_id) if subject_id else None,
+    )
 
 
 @router.get("/{material_id}/blocks")
@@ -38,13 +42,13 @@ def get_material_source(
 
 @router.post("/upload")
 def upload_material(
-    subject_id: str = Form(...),
+    subject_id: UUID = Form(...),
     file: UploadFile = File(...),
     current_user: CurrentUser = Depends(get_current_user),
 ):
     material = material_service.create_uploaded_material(
         user_id=current_user.id,
-        subject_id=subject_id,
+        subject_id=str(subject_id),
         file=file,
     )
     return {"material": material}
@@ -52,10 +56,10 @@ def upload_material(
 
 @router.post("/uploads", status_code=202)
 def queue_material_upload(
-    subject_id: str = Form(...),
+    subject_id: UUID = Form(...),
     file: UploadFile = File(...),
     current_user: CurrentUser = Depends(get_current_user),
 ):
     return ingestion_service.queue_upload(
-        user_id=current_user.id, subject_id=subject_id, file=file,
+        user_id=current_user.id, subject_id=str(subject_id), file=file,
     )

@@ -11,6 +11,14 @@
 
 后端核心链路已经完成自动化与真实端到端验收：资料上传、异步处理、MinerU/本地解析、Embedding、pgvector、LightRAG、混合检索、引用问答、记忆、学习产物、考试、错题和复习计划均有对应服务或测试。
 
+### Windows 中文编码
+
+项目文本统一使用 UTF-8。VS Code 工作区和一键启动脚本会自动设置 UTF-8；重新打开终端后生效。若在独立的 Windows PowerShell 5 窗口中直接读取文件，请使用：
+
+```powershell
+Get-Content -Encoding UTF8 .\README.md
+```
+
 前端当前是可运行的学习工作台，但需注意：
 
 - `VITE_MOCK_APP=true` 时，页面使用 `/api/workbench` 演示数据，不需要登录或外部 API。
@@ -164,6 +172,19 @@ Copy-Item .env.example .env
 | `DATABASE_URL` | 本地 PostgreSQL 示例 | psycopg、pgvector 与 LightRAG 连接串 |
 | `MATERIAL_STORAGE_BUCKET` | `study-materials` | 私有资料 bucket |
 
+##### 认证邮件：本地测试与生产发送
+
+本地环境默认把注册确认、密码找回等邮件发送到 Mailpit，可在 <http://localhost:8025> 查看，不会投递到真实邮箱。
+
+需要真实投递时，在 `supabase-project/.env` 中用邮件服务商提供的值替换 `SITE_URL`、`ADDITIONAL_REDIRECT_URLS` 和 `SMTP_*`。可复制该文件中紧邻本地 Mailpit 配置的生产占位模板。不要把真实的 `SMTP_PASS` 提交到版本库。配置完成后重建认证服务：
+
+```powershell
+Set-Location supabase-project
+docker compose up -d --force-recreate auth
+```
+
+上线前还应为发信域名配置 SPF、DKIM 和 DMARC，并确认应用正式域名已经加入重定向允许列表。
+
 #### 模型与解析
 
 | 变量 | 默认值 | 说明 |
@@ -199,6 +220,10 @@ Copy-Item .env.example .env
 | `ENABLE_HERMES_MEMORY` | `true` | 是否启用记忆快照与整理 |
 | `ENABLE_EXTERNAL_KNOWLEDGE` | `false` | 是否允许专业外部搜索 |
 | `ENABLE_WIKIPEDIA_FALLBACK` | `true` | 是否允许 Wikipedia 兜底 |
+| `EXAM_RETRIEVAL_TIMEOUT_SECONDS` | `30` | 单个练习检索方向的超时上限 |
+| `EXAM_BATCH_SIZE` | `4` | 每次模型调用最多生成的题目数 |
+| `EXAM_BATCH_TIMEOUT_SECONDS` | `60` | 单批题目生成超时上限 |
+| `EXAM_BATCH_RETRIES` | `1` | 单批失败后的局部重试次数 |
 
 其余阈值、成本和多模态参数均带注释列在 [`.env.example`](.env.example) 中。
 

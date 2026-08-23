@@ -23,8 +23,15 @@ def get_task(task_id: str, current_user: CurrentUser = Depends(get_current_user)
 @router.post("/{task_id}/retry")
 def retry_task(task_id: str, current_user: CurrentUser = Depends(get_current_user)):
     task = task_service.retry_task(user_id=current_user.id, task_id=task_id)
-    from app.worker.tasks import process_material
-    process_material.delay(task_id)
+    if task.get("taskType") == "exam_generation":
+        from app.worker.tasks import generate_exam
+        generate_exam.delay(task_id)
+    elif task.get("taskType") == "study_plan_generation":
+        from app.worker.tasks import generate_study_plan
+        generate_study_plan.delay(task_id)
+    else:
+        from app.worker.tasks import process_material
+        process_material.delay(task_id)
     return task
 
 

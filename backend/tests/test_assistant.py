@@ -74,3 +74,42 @@ def test_low_confidence_intent_returns_clarification(monkeypatch):
     assert result["needsClarification"] is True
     assert result["answer"] == "请说明复习范围"
     assert result["citations"] == []
+
+
+def test_assistant_forwards_session_role_generation_and_queues_memory(monkeypatch):
+    session_id = str(uuid4())
+    subject_id = str(uuid4())
+    queued = []
+
+    async def route(_message):
+        return IntentDecision(
+            primary_intent="qa", confidence=0.9, needs_retrieval=True,
+            needs_clarification=False, required_skills=[],
+        )
+
+    async def answer(**kwargs):
+        assert kwargs["session_id"] == session_id
+        assert "少用术语" in kwargs["teaching_instruction"]
+        return {
+            "answer": "基于资料的回答",
+            "citations": [{"id": "citation-1"}],
+            "messageId": "msg-1",
+            "generation": {"model": "test-model", "mocked": False},
+        }
+
+    monkeypatch.setattr(assistant_service, "route_intent", route)
+    monkeypatch.setattr(assistant_service.hermes_memory_service, "get_profile", lambda **_: {"memoryEnabled": True})
+    monkeypatch.setattr(assistant_service.hermes_memory_service, "list_active_skills", lambda **_: [])
+    monkeypatch.setattr(assistant_service.rag_service, "answer_with_rag", answer)
+    from app.worker.tasks import review_learning_interaction
+    monkeypatch.setattr(review_learning_interaction, "delay", lambda *args: queued.append(args))
+
+    payload = AssistantMessageRequest(
+        subjectId=subject_id, message="解释这个概念", sessionId=session_id, role="beginner",
+    )
+    result = asyncio.run(assistant_service.handle_message(user_id=str(uuid4()), payload=payload))
+
+    assert result["role"]["id"] == "beginner"
+    assert result["generation"]["model"] == "test-model"
+    assert result["memoryUpdates"] == [{"status": "queued", "type": "background_review"}]
+    assert queued[0][2] == session_id

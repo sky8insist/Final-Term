@@ -1,5 +1,6 @@
 from datetime import UTC, datetime
 import hashlib
+import json
 
 from app.config.settings import settings
 from app.db.supabase_client import get_supabase_client
@@ -11,6 +12,7 @@ from app.services.embedding_service import EmbeddingError, embed_texts
 from app.services.observability_service import user_id_context
 import asyncio
 from time import perf_counter
+from fastapi import HTTPException
 
 
 @celery_app.task(bind=True)
@@ -18,7 +20,9 @@ def process_material(self, task_id: str):
     operation_started_at = perf_counter()
     client = get_supabase_client()
     rows = client.table("processing_tasks").select("*").eq("id", task_id).limit(1).execute()
-    if not rows.data or rows.data[0]["status"] == "cancelled":
+    # Duplicate deliveries are possible after a worker restart. Only active
+    # queue states may enter the pipeline; terminal tasks must be idempotent.
+    if not rows.data or rows.data[0]["status"] not in {"queued", "running"}:
         return None
     row = rows.data[0]
     user_id, subject_id, material_id = row["user_id"], row["subject_id"], row["material_id"]
@@ -121,6 +125,148 @@ def process_material(self, task_id: str):
         raise self.retry(
             exc=exc, countdown=min(2 ** attempts, 60), max_retries=max_attempts - 1,
         )
+
+
+@celery_app.task(name="app.worker.tasks.generate_exam")
+def generate_exam(task_id: str):
+    operation_started_at = perf_counter()
+    client = get_supabase_client()
+    rows = client.table("processing_tasks").select("*").eq("id", task_id).limit(1).execute().data
+    if not rows or rows[0]["status"] not in {"queued", "running"}:
+        return None
+    row = rows[0]
+    user_id_context.set(row["user_id"])
+    metadata = dict(row.get("metadata") or {})
+    task_service.update_task(
+        user_id=row["user_id"], task_id=task_id, status="running", stage="parsing",
+        progress=5, attempts=int(row.get("attempts", 0)) + 1,
+        started_at=datetime.now(UTC).isoformat(), error_code=None, error_message=None,
+    )
+
+    stage_map = {
+        "retrieving": ("parsing", 15),
+        "generating": ("embedding", 45),
+        "validating": ("indexing", 75),
+        "saving": ("indexing", 90),
+    }
+
+    def report(stage_name: str, details: dict | None = None):
+        current = task_service.get_task(user_id=row["user_id"], task_id=task_id)
+        if current["status"] == "cancelled":
+            raise ProcessingCancelled("Exam generation cancelled by user")
+        details = details or {}
+        db_stage, progress = stage_map[stage_name]
+        completed = int(details.get("completedQuestions") or 0)
+        total = int(details.get("totalQuestions") or 0)
+        if stage_name == "generating" and total:
+            progress = min(72, 25 + round(completed / total * 47))
+        elif stage_name == "validating" and details.get("batchCount"):
+            batch = int(details.get("batch") or 1)
+            batch_count = max(int(details["batchCount"]), 1)
+            progress = min(72, 25 + round(((batch - 1) + 0.8) / batch_count * 47))
+        metadata["currentStage"] = stage_name
+        metadata["stageDetails"] = {key: value for key, value in details.items() if key != "checkpoint"}
+        if details.get("checkpoint"):
+            metadata["generationCheckpoint"] = details["checkpoint"]
+        task_service.update_task(
+            user_id=row["user_id"], task_id=task_id, status="running",
+            stage=db_stage, progress=progress, metadata=metadata,
+        )
+
+    try:
+        from app.models.exam import ExamGenerateRequest
+        from app.services import exam_service
+        payload = ExamGenerateRequest(**metadata["request"])
+        exam = asyncio.run(exam_service.generate_exam(
+            user_id=row["user_id"], payload=payload, on_stage=report,
+            checkpoint=metadata.get("generationCheckpoint"),
+        ))
+        generation = exam.get("generation") or {}
+        metadata.pop("generationCheckpoint", None)
+        metadata.update({
+            "currentStage": "ready", "examId": exam["id"],
+            "stageDetails": {"completedQuestions": exam.get("question_count", 0)},
+            "retrieval": generation.get("retrieval") or {},
+            "evidence": generation.get("evidence") or [],
+        })
+        task_service.update_task(
+            user_id=row["user_id"], task_id=task_id, status="succeeded", stage="ready",
+            progress=100, metadata=metadata, finished_at=datetime.now(UTC).isoformat(),
+        )
+        from app.services.observability_service import record_operation
+        record_operation(
+            operation="exam_generation", status="succeeded", started_at=operation_started_at,
+            task_id=task_id, stage="ready", metadata={"examId": exam["id"]},
+        )
+        return {"status": "succeeded", "taskId": task_id, "examId": exam["id"]}
+    except ProcessingCancelled:
+        return {"status": "cancelled", "taskId": task_id}
+    except Exception as exc:
+        detail = exc.detail if isinstance(exc, HTTPException) else str(exc)
+        message = detail if isinstance(detail, str) else json.dumps(detail, ensure_ascii=False)
+        friendly_messages = {
+            "No relevant indexed course material was found for this topic": "当前主题在课程资料中没有找到足够相关的内容，请更换主题或先上传相关资料。",
+            "Practice topic is required": "请输入练习主题后再生成。",
+        }
+        message = friendly_messages.get(message, message)
+        lowered = message.casefold()
+        error_code = "model_timeout" if "timeout" in lowered or "超时" in message else "exam_generation_failed"
+        metadata["currentStage"] = "failed"
+        task_service.update_task(
+            user_id=row["user_id"], task_id=task_id, status="failed", stage="failed",
+            progress=100, metadata=metadata, error_code=error_code,
+            error_message=message[:2000], finished_at=datetime.now(UTC).isoformat(),
+        )
+        from app.services.observability_service import record_operation
+        record_operation(
+            operation="exam_generation", status="failed", started_at=operation_started_at,
+            task_id=task_id, stage="failed", metadata={"errorType": type(exc).__name__},
+        )
+        return {"status": "failed", "taskId": task_id, "errorCode": error_code}
+
+
+@celery_app.task
+def generate_study_plan(task_id: str):
+    client = get_supabase_client()
+    rows = client.table("processing_tasks").select("*").eq("id", task_id).limit(1).execute().data
+    if not rows or rows[0]["status"] not in {"queued", "running"}:
+        return None
+    row = rows[0]
+    metadata = dict(row.get("metadata") or {})
+    task_service.update_task(
+        user_id=row["user_id"], task_id=task_id, status="running", stage="parsing",
+        progress=15, attempts=int(row.get("attempts", 0)) + 1,
+        started_at=datetime.now(UTC).isoformat(), error_code=None, error_message=None,
+    )
+    try:
+        from app.models.study_plan import StudyPlanRequest
+        from app.services import study_plan_service
+        payload = StudyPlanRequest(**metadata["request"])
+        task_service.update_task(user_id=row["user_id"], task_id=task_id, status="running", stage="embedding", progress=45)
+        result = study_plan_service.generate_plan(
+            user_id=row["user_id"], subject_id=payload.subject_id,
+            exam_date=payload.exam_date, daily_minutes=payload.daily_minutes, title=payload.title,
+            weekend_extra=payload.weekend_extra, reserve_final_day=payload.reserve_final_day,
+            preserve_existing=payload.preserve_existing,
+        )
+        task_service.update_task(user_id=row["user_id"], task_id=task_id, status="running", stage="indexing", progress=82)
+        result["tasks"] = asyncio.run(study_plan_service.enrich_task_guidance(
+            user_id=row["user_id"], plan=result["plan"], tasks=result["tasks"],
+        ))
+        metadata.update({"currentStage": "ready", "planId": result["plan"]["id"], "taskCount": len(result["tasks"])})
+        task_service.update_task(
+            user_id=row["user_id"], task_id=task_id, status="succeeded", stage="ready",
+            progress=100, metadata=metadata, finished_at=datetime.now(UTC).isoformat(),
+        )
+        return {"status": "succeeded", "taskId": task_id, "planId": result["plan"]["id"]}
+    except Exception as exc:
+        metadata["currentStage"] = "failed"
+        task_service.update_task(
+            user_id=row["user_id"], task_id=task_id, status="failed", stage="failed", progress=100,
+            metadata=metadata, error_code="study_plan_generation_failed", error_message=str(exc)[:2000],
+            finished_at=datetime.now(UTC).isoformat(),
+        )
+        return {"status": "failed", "taskId": task_id}
 
 
 @celery_app.task

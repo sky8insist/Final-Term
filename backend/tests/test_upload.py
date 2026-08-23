@@ -299,7 +299,7 @@ def test_upload_marks_material_failed_when_embedding_fails(monkeypatch, fake_cli
     assert fake_client.db["material_chunks"][0]["content"] == "hello module five"
 
 
-def test_upload_marks_material_failed_when_lightrag_index_fails(monkeypatch, fake_client):
+def test_upload_degrades_to_vector_search_when_lightrag_index_fails(monkeypatch, fake_client):
     use_test_user()
     monkeypatch.setattr(material_service, "get_subject", lambda **_: {})
     monkeypatch.setattr(material_service, "embed_texts", lambda texts: [[0.1, 0.2] for _ in texts])
@@ -323,9 +323,10 @@ def test_upload_marks_material_failed_when_lightrag_index_fails(monkeypatch, fak
     )
 
     assert response.status_code == 200
-    assert response.json()["material"]["status"] == "failed"
-    assert response.json()["material"]["errorMessage"] == "LightRAG indexing failed"
+    assert response.json()["material"]["status"] == "ready"
+    assert response.json()["material"]["errorMessage"] is None
     assert fake_client.db["lightrag_material_index"][0]["status"] == "failed"
+    assert fake_client.db["lightrag_material_index"][0]["error_message"] == "LightRAG indexing failed"
 
 
 def test_list_materials_filters_current_user_subject(monkeypatch, fake_client):

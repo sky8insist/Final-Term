@@ -13,3 +13,4 @@ def test_provider_normalizes_base_url():
     provider = OpenAICompatibleProvider(base_url="https://example.invalid/v1/", api_key="test")
     assert provider.base_url == "https://example.invalid/v1"
     assert provider.name == "openai-compatible"
+    assert provider.trust_env is False

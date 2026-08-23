@@ -1,5 +1,8 @@
 import asyncio
+import pytest
+from fastapi import HTTPException
 
+from app.config.settings import settings
 from app.services import rag_service
 
 USER_ID = "00000000-0000-0000-0000-000000000001"
@@ -59,7 +62,22 @@ def test_answer_with_rag_generates_answer_records_history_and_progress(monkeypat
     assert result["answer"] == "这是基于资料的答案。"
     assert result["messageId"] == "assistant-msg-1"
     assert result["citations"][0]["materialId"] == "mat-1"
+    assert result["generation"]["mocked"] is False
+    assert result["generation"]["grounded"] is True
+    assert result["generation"]["model"] == settings.llm_model
     assert [call[0] for call in calls] == ["history", "progress"]
+
+
+def test_answer_with_rag_refuses_mock_answers(monkeypatch):
+    monkeypatch.setattr(settings, "mock_external_apis", True)
+
+    with pytest.raises(HTTPException) as exc_info:
+        asyncio.run(rag_service.answer_with_rag(
+            user_id=USER_ID, subject_id=SUBJECT_ID, question="What is strategy?",
+        ))
+
+    assert exc_info.value.status_code == 503
+    assert "真实模型未启用" in exc_info.value.detail
 
 
 def test_answer_with_rag_does_not_call_llm_without_citations(monkeypatch):

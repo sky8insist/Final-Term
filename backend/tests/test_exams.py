@@ -13,6 +13,7 @@ def test_exam_routes_require_login():
     assert client.post("/api/v1/exams/attempts", json={"examId": "exam"}).status_code == 401
     assert client.post("/api/v1/exams/attempts/a/submit").status_code == 401
     assert client.get("/api/v1/exam-attempts/history?subject_id=s").status_code == 401
+    assert client.post("/api/v1/exam-attempts/a/questions/q/confirm", json={"response": "A"}).status_code == 401
     assert client.get("/api/v1/exams/e/export").status_code == 401
 
 
@@ -48,6 +49,43 @@ def test_objective_grading_is_deterministic(response, answer, correct):
     )
     assert result["isCorrect"] is correct
     assert result["earnedPoints"] == (5 if correct else 0)
+
+
+@pytest.mark.parametrize(
+    ("response", "answers", "correct"),
+    [(" 长期 方向 ", ["长期方向", "长期发展方向"], True),
+     ("长期发展方向", ["长期方向", "长期发展方向"], True),
+     ("短期排班", ["长期方向", "长期发展方向"], False)],
+)
+def test_fill_blank_accepts_normalized_aliases(response, answers, correct):
+    result = exam_service.grade_objective(
+        question_type="fill_blank", response=response, correct_answer=answers, points=2,
+    )
+    assert result["isCorrect"] is correct
+
+
+def test_short_answer_requires_fixed_rubric_matching_points():
+    question = {
+        "questionType": "short_answer", "stem": "战略为什么需要资源配置？",
+        "options": [], "correctAnswer": "资源配置支撑长期目标与行动方案。",
+        "explanation": "答案需连接目标、行动与资源。", "citationIds": ["c1"],
+        "rubric": {"criteria": [
+            {"description": "说明资源支撑长期目标", "points": 3},
+            {"description": "说明资源与行动方案的关系", "points": 2},
+        ]},
+    }
+    assert exam_service._validate_generated_questions(
+        {"questions": [question]},
+        [{"questionType": "short_answer", "count": 1, "pointsEach": 5}],
+        {"c1"},
+    ) == [question]
+    question["rubric"]["criteria"][1]["points"] = 1
+    with pytest.raises(HTTPException):
+        exam_service._validate_generated_questions(
+            {"questions": [question]},
+            [{"questionType": "short_answer", "count": 1, "pointsEach": 5}],
+            {"c1"},
+        )
 
 
 def test_generated_questions_must_match_blueprint():

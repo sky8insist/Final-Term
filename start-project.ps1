@@ -3,6 +3,7 @@ param([switch]$NoBrowser)
 
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+. (Join-Path $projectRoot 'scripts\enable-utf8.ps1')
 $pythonExe = Join-Path $projectRoot 'backend\.venv\Scripts\python.exe'
 $frontendDir = Join-Path $projectRoot 'frontend'
 if (-not (Test-Path (Join-Path $frontendDir 'package.json'))) {
@@ -36,6 +37,14 @@ if (-not (Test-Path $viteExe)) { throw 'Missing frontend dependencies. Run npm i
 
 New-Item -ItemType Directory -Path $runDir -Force | Out-Null
 $started = @()
+if (Test-Path -LiteralPath $pidFile) {
+    $recorded = @((Get-Content -Raw -LiteralPath $pidFile | ConvertFrom-Json))
+    foreach ($item in $recorded) {
+        if ($null -ne $item.pid -and (Get-Process -Id ([int]$item.pid) -ErrorAction SilentlyContinue)) {
+            $started += $item
+        }
+    }
+}
 
 docker info --format '{{.ServerVersion}}' | Out-Null
 if ($LASTEXITCODE -ne 0) { throw 'Docker Desktop is not ready.' }
@@ -43,14 +52,24 @@ if ($LASTEXITCODE -ne 0) { throw 'Docker Desktop is not ready.' }
 & (Join-Path $projectRoot 'scripts\start-local-supabase.ps1')
 Push-Location (Join-Path $projectRoot 'backend')
 try {
-    docker compose -f docker-compose.worker.yml up -d --wait
-    if ($LASTEXITCODE -ne 0) { throw 'Redis and background workers failed to start.' }
+    docker compose -f docker-compose.worker.yml up -d --wait redis beat
+    if ($LASTEXITCODE -ne 0) { throw 'Redis and scheduled tasks failed to start.' }
+    docker compose -f docker-compose.worker.yml stop worker | Out-Null
 } finally {
     Pop-Location
 }
 
 if (-not (Wait-Port 18000 60)) { throw 'Supabase gateway did not become ready on port 18000.' }
 if (-not (Wait-Port 6379 30)) { throw 'Redis did not become ready on port 6379.' }
+
+if ($started | Where-Object { $_.name -eq 'worker' }) {
+    Write-Host '[Worker] Already running on the Windows host.' -ForegroundColor Yellow
+} else {
+    $workerScript = Join-Path $projectRoot 'scripts\dev-worker.ps1'
+    $process = Start-Process powershell.exe -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$workerScript`"" -PassThru
+    $started += [pscustomobject]@{ name = 'worker'; pid = $process.Id }
+    Write-Host '[Worker] Starting on the Windows host...' -ForegroundColor Green
+}
 
 if (Test-Port 8000) {
     Write-Host '[Backend] Already running on port 8000.' -ForegroundColor Yellow
@@ -70,9 +89,7 @@ if (Test-Port 5173) {
     Write-Host '[Frontend] Starting...' -ForegroundColor Green
 }
 
-if ($started.Count -gt 0) {
-    $started | ConvertTo-Json | Set-Content -LiteralPath $pidFile -Encoding UTF8
-}
+$started | ConvertTo-Json | Set-Content -LiteralPath $pidFile -Encoding UTF8
 
 $frontendReady = Wait-Port 5173
 $backendReady = Wait-Port 8000

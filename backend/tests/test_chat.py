@@ -51,6 +51,7 @@ def test_chat_ask_returns_answer_and_citations(monkeypatch):
     async def fake_answer_with_rag(**kwargs):
         assert kwargs["user_id"] == USER_ID
         assert kwargs["subject_id"] == SUBJECT_ID
+        assert "考试作答标准" in kwargs["teaching_instruction"]
         return {
             "answer": "这是中文答案。",
             "messageId": "msg-1",
@@ -69,7 +70,7 @@ def test_chat_ask_returns_answer_and_citations(monkeypatch):
 
     response = client.post(
         "/chat/ask",
-        json={"subjectId": SUBJECT_ID, "question": "What should I review?"},
+        json={"subjectId": SUBJECT_ID, "question": "What should I review?", "mode": "exam"},
     )
 
     assert response.status_code == 200

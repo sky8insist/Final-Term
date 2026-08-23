@@ -11,7 +11,14 @@ export default function Dashboard() {
   const [creating, setCreating] = useState(false);
   const { setCurrentSubject } = useAppStore();
   const navigate = useNavigate();
-  const load = () => api.dashboard().then(setData).catch((e) => setError(e.message));
+  const load = () => api.dashboard().then((nextData) => {
+    const selected = useAppStore.getState().currentSubject;
+    if (selected && !nextData.subjects.some((subject) => subject.id === selected.id)) {
+      setCurrentSubject(null);
+    }
+    setError('');
+    setData(nextData);
+  }).catch((e) => setError(e.message));
   useEffect(() => { void load(); }, []);
   async function create(event: FormEvent<HTMLFormElement>) { event.preventDefault(); const form = new FormData(event.currentTarget); await api.createSubject({ name: String(form.get('name')), description: String(form.get('description')) }); setCreating(false); load(); }
   return <div className="h-full overflow-y-auto p-6 md:p-8">

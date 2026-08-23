@@ -1,12 +1,8 @@
-import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { useGSAP } from '@gsap/react';
-import gsap from 'gsap';
 import { ArrowRight, BookOpenCheck, Check, Eye, EyeOff, KeyRound, LoaderCircle, LockKeyhole, Mail, RefreshCw, UserRound } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../auth/AuthProvider';
-
-gsap.registerPlugin(useGSAP);
 
 type AuthMode = 'login' | 'register' | 'forgot-password' | 'reset-password' | 'verify-email' | 'verified';
 type RegisterMethod = 'email' | 'account';
@@ -39,7 +35,6 @@ export default function AuthPage() {
   const params = useParams();
   const mode = (params.mode || 'login') as AuthMode;
   const currentMode: AuthMode = Object.hasOwn(copy, mode) ? mode : 'login';
-  const rootRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
   const navigate = useNavigate();
   const { user, isConfigured } = useAuth();
@@ -57,16 +52,6 @@ export default function AuthPage() {
     const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname;
     return from?.startsWith('/') ? from : '/';
   }, [location.state]);
-
-  useGSAP(() => {
-    const media = gsap.matchMedia();
-    media.add('(prefers-reduced-motion: no-preference)', () => {
-      gsap.timeline({ defaults: { ease: 'expo.out' } })
-        .from('.auth-mark', { y: 16, autoAlpha: 0, duration: .65, stagger: .08 })
-        .from('.auth-panel', { y: 22, autoAlpha: 0, duration: .72 }, '-=.45');
-    });
-    return () => media.revert();
-  }, { scope: rootRef });
 
   useEffect(() => {
     if (resendCooldown <= 0) return;
@@ -153,7 +138,7 @@ export default function AuthPage() {
     else { setResendCooldown(60); setNotice('验证邮件已重新发送。'); }
   }
 
-  return <div className="auth-shell" ref={rootRef}>
+  return <div className="auth-shell">
     <section className="auth-story" aria-label="产品介绍">
       <div className="auth-brand auth-mark"><BookOpenCheck aria-hidden="true" /><span>AI 学习工作台</span></div>
       <div className="auth-story-copy">

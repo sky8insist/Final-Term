@@ -247,14 +247,14 @@ def export_artifact(*, user_id: str, artifact_id: str, export_format: str) -> tu
         return json.dumps(content, ensure_ascii=False, indent=2).encode("utf-8"), "application/json", f"{safe_name}.json"
     lines = _mind_map_lines(content) if artifact["artifact_type"] == "mind_map" else []
     if export_format in {"markdown", "md"}:
-        text = "\n".join(f"{'  ' * depth}- {node['title']}: {node.get('description', '')}" for depth, node in lines)
+        text = "\n".join(f"{'  ' * depth}- {node.get('label', node.get('title', ''))}: {node.get('description', '')}" for depth, node in lines)
         return text.encode("utf-8"), "text/markdown; charset=utf-8", f"{safe_name}.md"
     if export_format == "mermaid":
-        body = ["mindmap"] + [f"{'  ' * (depth + 1)}{node['id']}[\"{str(node['title']).replace(chr(34), chr(39))}\"]" for depth, node in lines]
+        body = ["mindmap"] + [f"{'  ' * (depth + 1)}{node['id']}[\"{str(node.get('label', node.get('title', ''))).replace(chr(34), chr(39))}\"]" for depth, node in lines]
         return "\n".join(body).encode("utf-8"), "text/plain; charset=utf-8", f"{safe_name}.mmd"
     if export_format == "svg":
         height = max(120, 52 * len(lines) + 40)
-        rows = "".join(f'<text x="{20 + depth * 36}" y="{35 + i * 52}" font-size="18">{html.escape(str(node["title"]))}</text>' for i, (depth, node) in enumerate(lines))
+        rows = "".join(f'<text x="{20 + depth * 36}" y="{35 + i * 52}" font-size="18">{html.escape(str(node.get("label", node.get("title", ""))))}</text>' for i, (depth, node) in enumerate(lines))
         svg = f'<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="{height}" viewBox="0 0 1200 {height}"><rect width="100%" height="100%" fill="white"/>{rows}</svg>'
         return svg.encode("utf-8"), "image/svg+xml", f"{safe_name}.svg"
     if export_format in {"png", "jpg", "jpeg", "pdf"}:
@@ -263,7 +263,7 @@ def export_artifact(*, user_id: str, artifact_id: str, export_format: str) -> tu
         draw = ImageDraw.Draw(image)
         font = load_export_font(18)
         for i, (depth, node) in enumerate(lines):
-            draw.text((20 + depth * 32, 20 + i * 42), str(node["title"]), fill="black", font=font)
+            draw.text((20 + depth * 32, 20 + i * 42), str(node.get("label", node.get("title", ""))), fill="black", font=font)
         buffer = io.BytesIO()
         if export_format == "pdf":
             image.save(buffer, format="PDF", resolution=150)

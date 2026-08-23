@@ -42,7 +42,12 @@ class MinerUClient:
     ):
         self._owns_clients = client is None and transfer_client is None
         timeout = httpx.Timeout(90.0, connect=15.0)
-        self.client = client or httpx.Client(timeout=timeout, follow_redirects=False)
+        # Both MinerU's control plane and its signed object-storage URLs must
+        # bypass stale system proxies. A dead Windows proxy prevents ticket
+        # creation, while proxy rewriting can invalidate signed OSS requests.
+        self.client = client or httpx.Client(
+            timeout=timeout, follow_redirects=False, trust_env=False,
+        )
         self.transfer_client = transfer_client or httpx.Client(
             timeout=timeout, follow_redirects=False, trust_env=False,
         )

@@ -33,6 +33,7 @@ class ChatRequest(BaseModel):
     subject_id: str = Field(validation_alias="subjectId")
     question: str = Field(max_length=4000)
     session_id: str | None = Field(default=None, validation_alias="sessionId")
+    mode: Literal["detail", "quick", "socratic", "exam"] = "detail"
 
     @field_validator("question")
     @classmethod
