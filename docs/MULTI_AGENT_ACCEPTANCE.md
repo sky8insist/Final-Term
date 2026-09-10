@@ -1,6 +1,7 @@
 # Dayend V3 Acceptance Record
 
-This record reflects automated source and graph tests, not unrun quality targets.
+This record reflects automated tests and the explicitly listed real acceptance
+evidence. It does not convert unrun quality targets into passes.
 
 | Gate | Evidence | Status |
 |---|---|---|
@@ -11,7 +12,11 @@ This record reflects automated source and graph tests, not unrun quality targets
 | Mixed parallel DAG | `test_mixed_graph.py` | Pass |
 | Tool isolation | `test_tool_permissions.py` | Pass |
 | V3 API surface | `test_v3_api_contract.py` | Pass |
+| Seven real structured invocations | `.run/dayend-live-all.stdout.log`, Critic retry log | Pass |
+| Real Mixed graph | `.run/dayend-mixed.stdout.log` | Pass |
+| Real Critic → Planning revision → Critic | `.run/dayend-revision-tracecomplete.stdout.log` | Pass |
+| Real checkpoint resume | `.run/dayend-hitl-statefix.stdout.log` | Pass |
 
-Pending real-environment evaluation: live model invocation, production database
-business persistence, UI rendering of SSE activity, and the 100-case evaluation/
+Pending: fine-grained SSE and UI rendering of real activity, production database
+business persistence, complete server-restart E2E, and the 100-case evaluation/
 ablation study required by the implementation specification.

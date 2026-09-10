@@ -1,5 +1,51 @@
 # 项目交接文档
 
+## 2026-09-10 — Dayend V3 真实验收与工作区整理续作（最新）
+
+### 已完成并提交
+
+- 工作区已整理为干净状态；已删除 17 个 `test-*.sqlite` 测试产物，并在 `.gitignore` 中忽略根目录 `data/dayend/*.sqlite`。
+- 已提交：
+  - `cc2b171 feat(dayend): add stateful multi-agent runtime and acceptance`
+  - `be97fea fix(dayend): make checkpoint persistence async-safe`
+- 真实 SiliconFlow 逐 Agent 结构化验收已覆盖 Supervisor、Closure、Planning、Emotion、Safety、Critic、Morning；运行元数据记录在本地 `.run/dayend-*.log`，不提交。
+- 真实 Mixed 图验收完成：Closure/Emotion 并行，分别依赖到 Planning/Safety，最终由 Critic 汇合。
+- 真实 Critic revision 验收完成：Critic 指向 `planning_agent`，Planning 带反馈修订，Critic 复审通过；完整 Trace 为 3 条。
+- 真实 HITL 验收完成：真实 Closure → SQLite checkpoint → 新图实例 → `resume(thread_id)`；人工响应为 `{"confirmed": false, "status": "unfinished"}`。
+
+### 本轮修复
+
+- Dayend async 图原先搭配同步 `SqliteSaver`，真实 HITL 报错。生产 `/api/v3` 现使用 `AsyncSqliteSaver`，子图由根图持久化。
+- Dayend checkpoint serializer 显式允许 `AgentEnvelope[TypeVar]` 和 `AgentTrace`，跨实例 resume 不再出现未来版本将拒绝的未注册类型警告。
+- Agent runtime 增加 120 秒硬超时、失败类型 Trace 和 provider token usage 采集；Critic 的路由目标由其 issue 的 `target_agent` 确定性投影，避免重复字段冲突。
+- 持久化测试显式关闭 SQLite saver，防止 Windows 留下锁定的测试数据库。
+
+### 当前验收状态与门禁
+
+- Dayend/图/API/运行时专项测试通过；最近一轮异步持久化相关回归为 `14 passed`，serializer 修复后的本地回归为 `3 passed`。
+- 前端 `npm run lint`、`npm run build` 通过；构建仍有 509.37 kB 主 chunk 警告。
+- 后端完整 `pytest tests -q` 能推进到约 85%，随后在后段检索/计划测试无 CPU 进展；该完整回归目前为未完成，不能写成通过。单独的 assistant 用例可通过。
+
+### 下一步（严格顺序）
+
+1. 补齐 `/api/v3/runs/stream` 的细粒度 SSE：`agent_started`、真实 tool-call、`revision_started`、`critic_failed`、明确 `run_failed`/`run_completed`。
+2. 前端在 `MainLayout` 挂载 Dayend Activity Drawer；使用受认证的 fetch streaming 消费 POST SSE，并提供 HITL 确认/resume 交互。
+3. 为 SSE 与前端消费增加自动化契约测试和一次真实流式验收；不得用模拟活动替代真实 Trace。
+4. 诊断并恢复完整后端 pytest 门禁，再进入 100-case evaluation、A/B/C ablation 与生产 PostgreSQL 迁移。
+
+### 后续启动提示
+
+```powershell
+Set-Location C:\Users\xingk\Desktop\Final-Term-main
+git status --short
+Get-Content -Raw -Encoding UTF8 .\HANDOFF.md
+
+Set-Location .\backend
+.\.venv\Scripts\python.exe -m pytest tests\graphs tests\architecture\test_v3_api_contract.py tests\runtime\test_agent_factory.py tests\scripts -q -p no:cacheprovider
+```
+
+真实 Dayend 验收前只检查非敏感开关：`MOCK_EXTERNAL_APIS=false`；不得输出 API key、提交 `.run/`、`data/` 或 `.env`。
+
 ## 2026-09-01 — Dayend V3 Multi-Agent 重构续作（最新）
 
 ### 本轮新增与已验证
