@@ -7,7 +7,6 @@ from app.agents.critic import critic_node
 from app.agents.emotion import emotion_node
 from app.agents.planner import planning_node
 from app.agents.safety import safety_node
-from app.persistence.checkpointer import get_dayend_checkpointer
 from app.state.dayend_state import DayendState
 
 
@@ -16,7 +15,7 @@ def fan_out_specialists(_: DayendState) -> list[str]:
     return ["closure", "emotion"]
 
 
-def build_mixed_graph(*, with_checkpointer: bool = True):
+def build_mixed_graph(*, with_checkpointer: bool = False):
     graph = StateGraph(DayendState)
     graph.add_node("closure", closure_node)
     graph.add_node("planning", planning_node)
@@ -28,4 +27,4 @@ def build_mixed_graph(*, with_checkpointer: bool = True):
     graph.add_edge("emotion", "safety")
     graph.add_edge(["planning", "safety"], "critic")
     graph.add_edge("critic", END)
-    return graph.compile(checkpointer=get_dayend_checkpointer() if with_checkpointer else None)
+    return graph.compile(checkpointer=None)

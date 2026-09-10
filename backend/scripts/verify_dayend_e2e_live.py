@@ -7,14 +7,23 @@ import sys
 from pathlib import Path
 from uuid import uuid4
 
+import aiosqlite
+from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
+from langgraph.graph import END, START, StateGraph
+from langgraph.types import Command
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.config.settings import settings
+from app.agents.closure import closure_node
 from app.agents.critic import critic_node
 from app.agents.planner import planning_node
+from app.graphs.human import human_confirmation_node, needs_human_confirmation
 from app.graphs.mixed_graph import build_mixed_graph
 from app.graphs.revision import prepare_revision
+from app.persistence.checkpointer import DAYEND_CHECKPOINT_SERDE
 from app.schemas.common import AgentRunFailed
+from app.state.dayend_state import DayendState
 
 
 def merge_update(state: dict, update: dict) -> None:
@@ -82,15 +91,72 @@ async def verify_revision() -> None:
         print(json.dumps({"acceptance": "FAILED_NO_FALLBACK", "case": "critic_revision", "trace": exc.trace.model_dump(mode="json") if exc.trace else None, "failure_type": exc.failure_type, "error": str(exc)}))
 
 
+def _hitl_graph(store: AsyncSqliteSaver, *, force_confirmation: bool = False):
+    graph = StateGraph(DayendState)
+    graph.add_node("closure", closure_node)
+    graph.add_node("human_confirmation", human_confirmation_node)
+    graph.add_edge(START, "closure")
+    if force_confirmation:
+        graph.add_edge("closure", "human_confirmation")
+    else:
+        graph.add_conditional_edges("closure", needs_human_confirmation, {
+            "human_confirmation": "human_confirmation", "planning": END,
+        })
+    graph.add_edge("human_confirmation", END)
+    return graph.compile(checkpointer=store)
+
+
+async def verify_hitl(*, force_confirmation: bool = False) -> None:
+    checkpoint = Path.cwd().parent / ".run" / f"dayend-hitl-{uuid4()}.sqlite"
+    thread_id = f"live-hitl-{uuid4()}"
+    config = {"configurable": {"thread_id": thread_id}}
+    state = {
+        "run_id": f"live-hitl-{uuid4()}", "thread_id": thread_id,
+        "user_input": "I may have sent the report to my advisor, but I am not sure. Please check this as unfinished until I confirm.",
+        "entry_point": "night", "critic_feedback": {}, "agent_trace": [],
+    }
+    first_store = AsyncSqliteSaver(
+        await aiosqlite.connect(checkpoint), serde=DAYEND_CHECKPOINT_SERDE,
+    )
+    try:
+        first = await _hitl_graph(first_store, force_confirmation=force_confirmation).ainvoke(state, config)
+    except AgentRunFailed as exc:
+        print(json.dumps({"acceptance": "FAILED_NO_FALLBACK", "case": "hitl_resume", "trace": exc.trace.model_dump(mode="json") if exc.trace else None, "failure_type": exc.failure_type, "error": str(exc)}))
+        await first_store.conn.close()
+        checkpoint.unlink(missing_ok=True)
+        return
+    await first_store.conn.close()
+    if "__interrupt__" not in first:
+        print(json.dumps({"acceptance": "NOT_TRIGGERED", "case": "hitl_resume", "trace": [trace.model_dump(mode="json") for trace in first.get("agent_trace", [])]}))
+        checkpoint.unlink(missing_ok=True)
+        return
+    resumed_store = AsyncSqliteSaver(
+        await aiosqlite.connect(checkpoint), serde=DAYEND_CHECKPOINT_SERDE,
+    )
+    try:
+        resumed = await _hitl_graph(resumed_store, force_confirmation=force_confirmation).ainvoke(Command(resume={"confirmed": False, "status": "unfinished"}), config)
+        print(json.dumps({
+            "acceptance": "PASS" if resumed.get("human_response", {}).get("confirmed") is False else "FAILED",
+            "case": "hitl_resume_forced" if force_confirmation else "hitl_resume", "thread_id": thread_id,
+            "trace": [trace.model_dump(mode="json") for trace in first.get("agent_trace", [])],
+            "human_response": resumed.get("human_response"),
+        }, ensure_ascii=False))
+    finally:
+        await resumed_store.conn.close()
+        checkpoint.unlink(missing_ok=True)
+
+
 async def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--case", choices=["mixed", "revision"], default="mixed")
+    parser.add_argument("--case", choices=["mixed", "revision", "hitl", "hitl-serde"], default="mixed")
     args = parser.parse_args()
     settings.dayend_max_retries = 1 if args.case == "revision" else 0
     if args.case == "mixed":
         await verify_mixed()
-    else:
+    elif args.case == "revision":
         await verify_revision()
+    else:
+        await verify_hitl(force_confirmation=args.case == "hitl-serde")
 
 
 if __name__ == "__main__":

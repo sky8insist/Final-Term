@@ -18,7 +18,7 @@ async def create_dayend_run(payload: DayendRunRequest, current_user: CurrentUser
 
 @router.get("/runs/{thread_id}")
 async def get_dayend_run(thread_id: str, _: CurrentUser = Depends(get_current_user)):
-    return get_run(thread_id=thread_id)
+    return await get_run(thread_id=thread_id)
 
 
 @router.post("/runs/{thread_id}/resume")

@@ -16,7 +16,7 @@ from app.persistence.checkpointer import get_dayend_checkpointer
 from app.state.dayend_state import DayendState
 
 
-def build_closure_graph():
+def build_closure_graph(*, checkpointer=None):
     graph = StateGraph(DayendState)
     graph.add_node("supervisor", supervisor_node)
     graph.add_node("closure", closure_node)
@@ -53,7 +53,11 @@ def build_closure_graph():
     graph.add_edge("mixed", "persistence")
     graph.add_edge("morning", "persistence")
     graph.add_edge("persistence", END)
-    return graph.compile(checkpointer=get_dayend_checkpointer())
+    return graph.compile(checkpointer=checkpointer)
+
+
+async def build_persistent_closure_graph():
+    return build_closure_graph(checkpointer=await get_dayend_checkpointer())
 
 
 build_phase_one_graph = build_closure_graph
