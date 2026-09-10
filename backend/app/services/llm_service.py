@@ -71,7 +71,3 @@ async def generate_json_async(prompt: str, system_prompt: str | None = None, **k
     if not isinstance(result, dict):
         raise LLMServiceError("LLM JSON response was invalid")
     return result
-
-
-def generate_text(prompt: str, system_prompt: str | None = None) -> str:
-    raise LLMServiceError("Synchronous LLM generation is not available")

@@ -155,7 +155,7 @@ def fake_client(monkeypatch):
 
 def test_upload_requires_bearer_token():
     response = client.post(
-        "/materials/upload",
+        "/api/v1/materials/upload",
         data={"subject_id": SUBJECT_ID},
         files={"file": ("notes.txt", b"hello", "text/plain")},
     )
@@ -168,7 +168,7 @@ def test_upload_rejects_unsupported_file_type(monkeypatch):
     monkeypatch.setattr(material_service, "get_subject", lambda **_: {})
 
     response = client.post(
-        "/materials/upload",
+        "/api/v1/materials/upload",
         data={"subject_id": SUBJECT_ID},
         files={"file": ("notes.exe", b"hello", "application/x-msdownload")},
     )
@@ -181,7 +181,7 @@ def test_upload_rejects_declared_pdf_with_non_pdf_content(monkeypatch):
     use_test_user()
     monkeypatch.setattr(material_service, "get_subject", lambda **_: {})
     response = client.post(
-        "/materials/upload", data={"subject_id": SUBJECT_ID},
+        "/api/v1/materials/upload", data={"subject_id": SUBJECT_ID},
         files={"file": ("fake.pdf", b"not actually a pdf", "application/pdf")},
     )
     assert response.status_code == 400
@@ -194,7 +194,7 @@ def test_upload_rejects_file_over_max_size(monkeypatch):
     monkeypatch.setattr(settings, "max_upload_mb", 0)
 
     response = client.post(
-        "/materials/upload",
+        "/api/v1/materials/upload",
         data={"subject_id": SUBJECT_ID},
         files={"file": ("notes.txt", b"hello", "text/plain")},
     )
@@ -213,7 +213,7 @@ def test_upload_returns_404_for_missing_or_foreign_subject(monkeypatch):
     monkeypatch.setattr(material_service, "get_subject", raise_not_found)
 
     response = client.post(
-        "/materials/upload",
+        "/api/v1/materials/upload",
         data={"subject_id": "00000000-0000-0000-0000-000000000099"},
         files={"file": ("notes.txt", b"hello", "text/plain")},
     )
@@ -243,7 +243,7 @@ def test_upload_processes_txt_and_creates_chunks(monkeypatch, fake_client):
     )
 
     response = client.post(
-        "/materials/upload",
+        "/api/v1/materials/upload",
         data={"subject_id": SUBJECT_ID},
         files={"file": ("notes.txt", b"hello module four", "text/plain")},
     )
@@ -265,7 +265,7 @@ def test_upload_marks_material_failed_when_text_is_empty(monkeypatch, fake_clien
     monkeypatch.setattr(material_service, "get_subject", lambda **_: {})
 
     response = client.post(
-        "/materials/upload",
+        "/api/v1/materials/upload",
         data={"subject_id": SUBJECT_ID},
         files={"file": ("notes.txt", b"   \n\n", "text/plain")},
     )
@@ -288,7 +288,7 @@ def test_upload_marks_material_failed_when_embedding_fails(monkeypatch, fake_cli
     monkeypatch.setattr(material_service, "embed_texts", fail_embedding)
 
     response = client.post(
-        "/materials/upload",
+        "/api/v1/materials/upload",
         data={"subject_id": SUBJECT_ID},
         files={"file": ("notes.txt", b"hello module five", "text/plain")},
     )
@@ -317,7 +317,7 @@ def test_upload_degrades_to_vector_search_when_lightrag_index_fails(monkeypatch,
     monkeypatch.setattr(material_service, "index_material", fail_index)
 
     response = client.post(
-        "/materials/upload",
+        "/api/v1/materials/upload",
         data={"subject_id": SUBJECT_ID},
         files={"file": ("notes.txt", b"hello module six", "text/plain")},
     )
@@ -347,7 +347,7 @@ def test_list_materials_filters_current_user_subject(monkeypatch, fake_client):
         }
     )
 
-    response = client.get(f"/materials?subject_id={SUBJECT_ID}")
+    response = client.get(f"/api/v1/materials?subject_id={SUBJECT_ID}")
 
     assert response.status_code == 200
     assert response.json()[0]["subjectId"] == SUBJECT_ID

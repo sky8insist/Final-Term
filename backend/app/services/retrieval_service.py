@@ -1,4 +1,5 @@
 import re
+from time import perf_counter
 
 from fastapi import HTTPException, status
 
@@ -7,6 +8,7 @@ from app.db.vector_store import VectorStoreError, search_chunk_vectors
 from app.services.embedding_service import EmbeddingError, embed_texts
 from app.services.lightrag_service import LightRAGServiceError, build_workspace, extract_chunk_markers, search_context
 from app.services.subject_service import get_subject
+from app.services.observability_service import record_operation
 
 
 def _clean_question(question: str) -> str:
@@ -33,6 +35,18 @@ def _normalize_top_k(top_k: int | None) -> int:
 def _definition_query(question: str) -> str | None:
     """Create a deterministic lexical query for definition-style questions."""
     cleaned = question.strip().rstrip("?？.!。 ")
+    english = re.fullmatch(
+        r"what\s+is\s+(.+?)(?:'s|’s)\s+definition(?:\s+of\s+.+)?",
+        cleaned, flags=re.IGNORECASE,
+    )
+    if english:
+        return re.sub(r"\s+et\s+al\.?$", "", english.group(1).strip(), flags=re.IGNORECASE)
+    english = re.fullmatch(r"how\s+(?:does|do)\s+(.+?)\s+define\s+.+", cleaned, flags=re.IGNORECASE)
+    if english:
+        return re.sub(r"\s+et\s+al\.?$", "", english.group(1).strip(), flags=re.IGNORECASE)
+    english = re.fullmatch(r"what\s+does\s+(.+?)\s+mean(?:\s+.+)?", cleaned, flags=re.IGNORECASE)
+    if english:
+        return english.group(1).strip()
     english = re.fullmatch(r"what\s+(?:is|are)\s+(.+)", cleaned, flags=re.IGNORECASE)
     if english:
         term = english.group(1).strip()
@@ -48,6 +62,22 @@ def _definition_query(question: str) -> str | None:
         term = chinese.group(1).strip()
         return f"{term} 定义" if term else None
     return None
+
+
+def _concise_keyword_query(question: str) -> str | None:
+    tokens = re.findall(r"[A-Za-z][A-Za-z0-9'-]*|[\u4e00-\u9fff]{2,}", question)
+    stopwords = {
+        "how", "does", "do", "what", "which", "why", "when", "where", "who",
+        "is", "are", "the", "a", "an", "and", "or", "by", "of", "on", "in",
+        "according", "mean", "means", "example", "examples", "describe", "describes",
+    }
+    compact = [
+        re.sub(r"(?:'s|’s)$", "", token)
+        for token in tokens
+        if token.casefold() not in stopwords
+    ]
+    value = " ".join(compact[:8]).strip()
+    return value if value and value.casefold() != question.strip().casefold() else None
 
 
 def _expand_page_context(*, client, user_id: str, subject_id: str, citations: list[dict]) -> None:
@@ -146,6 +176,7 @@ def search_subject_context(
     end_time: float | None = None,
     min_confidence: float | None = None,
 ) -> dict:
+    operation_started = perf_counter()
     get_subject(user_id=user_id, subject_id=subject_id)
     cleaned_question = _clean_question(question)
     normalized_top_k = _normalize_top_k(top_k)
@@ -176,6 +207,12 @@ def search_subject_context(
             warnings.append("lightrag_unavailable")
     elif embedding_dimension:
         warnings.append("lightrag_unavailable")
+    record_operation(
+        operation="retrieval", stage="lightrag", status="succeeded",
+        started_at=operation_started,
+        metadata={"available": has_lightrag_index, "warningCount": len(warnings)},
+    )
+    stage_started = perf_counter()
     lightrag_citations = extract_chunk_markers(raw_context)
     citations: list[dict] = []
     seen: dict[str, dict] = {}
@@ -241,7 +278,15 @@ def search_subject_context(
     definition_query = _definition_query(cleaned_question)
     if definition_query and definition_query.casefold() != cleaned_question.casefold():
         add_keyword_rows(keyword_search(definition_query), "keyword_definition")
+    concise_query = _concise_keyword_query(cleaned_question)
+    if concise_query:
+        add_keyword_rows(keyword_search(concise_query), "keyword_concise")
+    record_operation(
+        operation="retrieval", stage="keyword", status="succeeded",
+        started_at=stage_started, metadata={"candidateCount": len(citations)},
+    )
 
+    stage_started = perf_counter()
     vector_rows = []
     if embedding_dimension:
         try:
@@ -264,6 +309,11 @@ def search_subject_context(
             "confidence": metadata.get("confidence"),
             "score": float(row["score"]) if row.get("score") is not None else None,
         }, "vector", rank)
+    record_operation(
+        operation="retrieval", stage="vector", status="succeeded",
+        started_at=stage_started,
+        metadata={"candidateCount": len(vector_rows), "dimensions": embedding_dimension},
+    )
 
     citations.sort(key=lambda item: item.get("rrfScore", 0), reverse=True)
     citations = citations[:normalized_top_k]
@@ -282,7 +332,7 @@ def search_subject_context(
     combined_context = raw_context
     if structured_context:
         combined_context = f"{raw_context}\n\n{structured_context}".strip()
-    return {
+    result = {
         "subjectId": subject_id,
         "question": cleaned_question,
         "workspace": workspace,
@@ -295,3 +345,9 @@ def search_subject_context(
             "warnings": warnings,
         },
     }
+    record_operation(
+        operation="retrieval", stage="complete", status="succeeded",
+        started_at=operation_started,
+        metadata={"resultCount": len(citations), "warnings": warnings, "topK": normalized_top_k},
+    )
+    return result

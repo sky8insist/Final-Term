@@ -1,6 +1,9 @@
 import asyncio
+from contextvars import copy_context
 import os
 import re
+from queue import Queue
+from threading import Thread
 import threading
 from pathlib import Path
 from urllib.parse import unquote, urlparse
@@ -189,10 +192,13 @@ def index_material(
     chunks: list[dict],
     embedding_dimension: int,
 ) -> str:
-    try:
-        with _RAG_ENV_LOCK:
-            return asyncio.run(
-                asyncio.wait_for(
+    results: Queue[tuple[str, object]] = Queue(maxsize=1)
+    context = copy_context()
+
+    def run_index() -> None:
+        try:
+            with _RAG_ENV_LOCK:
+                value = asyncio.run(
                     _index_material_async(
                         user_id=user_id,
                         subject_id=subject_id,
@@ -200,19 +206,29 @@ def index_material(
                         filename=filename,
                         chunks=chunks,
                         embedding_dimension=embedding_dimension,
-                    ),
-                    timeout=settings.lightrag_index_timeout_seconds,
+                    )
                 )
-            )
-    except TimeoutError as exc:
+            results.put(("ok", value))
+        except BaseException as exc:
+            results.put(("error", exc))
+
+    worker = Thread(target=lambda: context.run(run_index), daemon=True, name=f"lightrag-index-{material_id}")
+    worker.start()
+    worker.join(settings.lightrag_index_timeout_seconds)
+    if worker.is_alive():
         timeout_seconds = settings.lightrag_index_timeout_seconds
         raise LightRAGServiceError(
             f"LightRAG indexing timed out after {timeout_seconds:g} seconds"
-        ) from exc
-    except Exception as exc:
+        )
+    state, value = results.get_nowait()
+    if state == "ok":
+        return str(value)
+    exc = value
+    if isinstance(exc, BaseException):
         if isinstance(exc, LightRAGServiceError):
             raise
         raise LightRAGServiceError("LightRAG indexing failed") from exc
+    raise LightRAGServiceError("LightRAG indexing failed")
 
 
 def search_context(

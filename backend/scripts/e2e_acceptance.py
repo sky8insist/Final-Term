@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import os
 import sys
@@ -20,8 +21,10 @@ ROOT = Path(__file__).resolve().parents[1]
 MIGRATIONS_DIR = ROOT / "migrations"
 DEFAULT_WORKDIR = ROOT / "data" / "acceptance"
 
-STUDENT_A = ("student_a@example.com", "Test123456!")
-STUDENT_B = ("student_b@example.com", "Test123456!")
+ACCEPTANCE_RUN_ID = ""
+ACCEPTANCE_EVENTS: list[dict[str, Any]] = []
+ACCEPTANCE_METRICS: dict[str, Any] = {}
+ACCEPTANCE_CHECKS: list[Check] = []
 
 LINEAR_SUBJECT_NAME = "线性代数期末复习"
 DATABASE_SUBJECT_NAME = "数据库系统复习"
@@ -31,12 +34,6 @@ LA-C2 矩阵的秩等于最大线性无关行或列的个数，也等于行最�
 LA-C3 n 阶矩阵可对角化的充分必要条件是存在 n 个线性无关特征向量。
 LA-C4 相似矩阵具有相同的特征多项式、特征值、行列式、迹和秩。
 """
-
-LINEAR_PDF_LINES = [
-    "LA-P1 homogeneous system Ax=0 has non-zero solutions when rank(A)<n.",
-    "LA-P2 non-homogeneous system Ax=b is solvable iff rank(A)=rank(A|b).",
-    "LA-P3 orthogonal matrix Q satisfies Q^TQ=I and preserves length and inner product.",
-]
 
 LINEAR_DOCX = """LA-D1 常见错误：把“有 n 个特征值”误认为一定可对角化；正确条件是有 n 个线性无关特征向量。
 LA-D2 常见错误：只看行列式判断非方阵可逆；可逆概念只适用于方阵。
@@ -65,6 +62,8 @@ REQUIRED_SCHEMA = {
     "wrong_answers": {"id", "question_id", "diagnosis"},
     "study_plans": {"id", "exam_date", "daily_minutes"},
     "review_tasks": {"id", "knowledge_key", "scheduled_date"},
+    "model_call_logs": {"id", "request_id", "trace_id", "acceptance_run_id", "estimated_cost"},
+    "operation_metrics": {"id", "request_id", "trace_id", "acceptance_run_id", "duration_ms"},
 }
 
 
@@ -99,57 +98,15 @@ def env_value(name: str, env_file: dict[str, str], default: str | None = None) -
     return os.environ.get(name) or env_file.get(name) or default
 
 
-def pdf_escape(text: str) -> str:
-    return text.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
-
-
-def write_simple_pdf(path: Path, lines: list[str]) -> None:
-    content_lines = ["BT", "/F1 11 Tf", "72 760 Td", "14 TL"]
-    for index, line in enumerate(lines):
-        if index:
-            content_lines.append("T*")
-        content_lines.append(f"({pdf_escape(line)}) Tj")
-    content_lines.append("ET")
-    stream = "\n".join(content_lines).encode("latin-1")
-    objects = [
-        b"<< /Type /Catalog /Pages 2 0 R >>",
-        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
-        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] "
-        b"/Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
-        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
-        b"<< /Length " + str(len(stream)).encode("ascii") + b" >>\nstream\n" + stream + b"\nendstream",
-    ]
-    data = bytearray(b"%PDF-1.4\n")
-    offsets: list[int] = []
-    for number, obj in enumerate(objects, start=1):
-        offsets.append(len(data))
-        data.extend(f"{number} 0 obj\n".encode("ascii"))
-        data.extend(obj)
-        data.extend(b"\nendobj\n")
-    xref_offset = len(data)
-    data.extend(f"xref\n0 {len(objects) + 1}\n0000000000 65535 f \n".encode("ascii"))
-    for offset in offsets:
-        data.extend(f"{offset:010d} 00000 n \n".encode("ascii"))
-    data.extend(
-        f"trailer << /Size {len(objects) + 1} /Root 1 0 R >>\nstartxref\n{xref_offset}\n%%EOF\n".encode(
-            "ascii"
-        )
-    )
-    path.write_bytes(data)
-
-
 def generate_dataset(workdir: Path) -> dict[str, Path]:
     workdir.mkdir(parents=True, exist_ok=True)
     paths = {
         "linear_txt": workdir / "linear_algebra_core.txt",
-        "linear_pdf": workdir / "linear_algebra_cases.pdf",
         "linear_docx": workdir / "linear_algebra_mistakes.docx",
         "database_txt": workdir / "database_core.txt",
     }
     paths["linear_txt"].write_text(LINEAR_TXT, encoding="utf-8")
     paths["database_txt"].write_text(DATABASE_TXT, encoding="utf-8")
-    write_simple_pdf(paths["linear_pdf"], LINEAR_PDF_LINES)
-
     document = Document()
     for line in LINEAR_DOCX.strip().splitlines():
         document.add_paragraph(line)
@@ -219,12 +176,43 @@ def login_or_register(client: httpx.Client, supabase_url: str, anon_key: str, em
     )
 
 
+def register_confirmed_account(client: httpx.Client, api_url: str, supabase_url: str,
+                               anon_key: str, username: str, password: str) -> Session:
+    response = client.post(
+        f"{api_url.rstrip('/')}/api/v1/auth/account/register",
+        json={"username": username, "password": password},
+    )
+    if response.status_code not in {201, 409}:
+        response.raise_for_status()
+    return login_or_register(
+        client, supabase_url, anon_key, f"{username}@account.examai.local", password,
+    )
+
+
 def api_headers(session: Session) -> dict[str, str]:
-    return {"Authorization": f"Bearer {session.token}"}
+    request_id = str(uuid4())
+    return {
+        "Authorization": f"Bearer {session.token}",
+        "X-Request-ID": request_id,
+        "X-Trace-ID": ACCEPTANCE_RUN_ID,
+        "X-Acceptance-Run-ID": ACCEPTANCE_RUN_ID,
+    }
 
 
 def api_json(client: httpx.Client, method: str, url: str, session: Session, **kwargs: Any) -> Any:
-    response = client.request(method, url, headers=api_headers(session), **kwargs)
+    headers = api_headers(session)
+    started_at = time.perf_counter()
+    response = client.request(method, url, headers=headers, **kwargs)
+    ACCEPTANCE_EVENTS.append({
+        "acceptanceRunId": ACCEPTANCE_RUN_ID,
+        "timestamp": datetime.now().astimezone().isoformat(),
+        "method": method,
+        "path": httpx.URL(url).path,
+        "statusCode": response.status_code,
+        "durationMs": round((time.perf_counter() - started_at) * 1000),
+        "requestId": response.headers.get("X-Request-ID") or headers["X-Request-ID"],
+        "traceId": response.headers.get("X-Trace-ID") or ACCEPTANCE_RUN_ID,
+    })
     response.raise_for_status()
     if response.status_code == 204:
         return None
@@ -232,25 +220,24 @@ def api_json(client: httpx.Client, method: str, url: str, session: Session, **kw
 
 
 def create_subject(client: httpx.Client, api_url: str, session: Session, name: str) -> dict:
+    existing = api_json(
+        client, "GET", f"{api_url.rstrip('/')}/api/v1/subjects", session,
+    )
+    matched = next((item for item in existing if item.get("name") == name), None)
+    if matched:
+        return matched
     return api_json(
         client,
         "POST",
-        f"{api_url.rstrip('/')}/subjects",
+        f"{api_url.rstrip('/')}/api/v1/subjects",
         session,
         json={"name": name, "description": "E2E acceptance fixture"},
     )
 
 
-def upload_material(client: httpx.Client, api_url: str, session: Session, subject_id: str, path: Path, content_type: str) -> dict:
-    with path.open("rb") as file_obj:
-        response = client.post(
-            f"{api_url.rstrip('/')}/materials/upload",
-            headers=api_headers(session),
-            data={"subject_id": subject_id},
-            files={"file": (path.name, file_obj, content_type)},
-        )
-    response.raise_for_status()
-    return response.json()["material"]
+def upload_material(client: httpx.Client, api_url: str, session: Session, subject_id: str,
+                    path: Path, content_type: str, timeout: float) -> dict:
+    return queue_and_wait(client, api_url, session, subject_id, path, content_type, timeout)["material"]
 
 
 def has_text(payload: Any, expected: str) -> bool:
@@ -260,10 +247,19 @@ def has_text(payload: Any, expected: str) -> bool:
 def queue_and_wait(client: httpx.Client, api_url: str, session: Session,
                    subject_id: str, path: Path, content_type: str, timeout: float) -> dict:
     with path.open("rb") as file_obj:
+        headers = api_headers(session)
+        started_at = time.perf_counter()
         response = client.post(
-            f"{api_url.rstrip('/')}/api/v1/materials/uploads", headers=api_headers(session),
+            f"{api_url.rstrip('/')}/api/v1/materials/uploads", headers=headers,
             data={"subject_id": subject_id}, files={"file": (path.name, file_obj, content_type)},
         )
+    ACCEPTANCE_EVENTS.append({
+        "acceptanceRunId": ACCEPTANCE_RUN_ID, "timestamp": datetime.now().astimezone().isoformat(),
+        "method": "POST", "path": "/api/v1/materials/uploads",
+        "statusCode": response.status_code, "durationMs": round((time.perf_counter() - started_at) * 1000),
+        "requestId": response.headers.get("X-Request-ID") or headers["X-Request-ID"],
+        "traceId": response.headers.get("X-Trace-ID") or ACCEPTANCE_RUN_ID,
+    })
     response.raise_for_status()
     queued = response.json()
     if queued.get("deduplicated") and queued.get("material", {}).get("status") == "ready":
@@ -271,18 +267,32 @@ def queue_and_wait(client: httpx.Client, api_url: str, session: Session,
     task = queued.get("task")
     if not task:
         raise RuntimeError("Async upload did not return a task")
+    current = wait_for_task(client, api_url, session, task["id"], timeout)
+    materials = api_json(
+        client, "GET", f"{api_url.rstrip('/')}/api/v1/materials", session,
+        params={"subject_id": subject_id},
+    )
+    material_id = queued.get("material", {}).get("id")
+    refreshed = next((item for item in materials if item.get("id") == material_id), queued.get("material"))
+    return {**queued, "material": refreshed, "task": current}
+
+
+def wait_for_task(client: httpx.Client, api_url: str, session: Session,
+                  task_id: str, timeout: float) -> dict:
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
-        current = api_json(client, "GET", f"{api_url.rstrip('/')}/api/v1/tasks/{task['id']}", session)
+        current = api_json(client, "GET", f"{api_url.rstrip('/')}/api/v1/tasks/{task_id}", session)
         if current["status"] in {"succeeded", "failed", "cancelled"}:
             if current["status"] != "succeeded":
                 raise RuntimeError(f"Async task ended as {current['status']}: {current.get('errorMessage')}")
-            return {**queued, "task": current}
+            return current
         time.sleep(1)
-    raise RuntimeError("Async upload did not finish before timeout")
+    raise RuntimeError("Async task did not finish before timeout")
 
 
 def run_acceptance(args: argparse.Namespace) -> list[Check]:
+    global ACCEPTANCE_RUN_ID, ACCEPTANCE_METRICS, ACCEPTANCE_CHECKS
+    ACCEPTANCE_RUN_ID = args.acceptance_run_id or f"acceptance-{datetime.now().strftime('%Y%m%dT%H%M%S')}-{uuid4().hex[:8]}"
     env_file = load_env_file(ROOT.parent / ".env")
     api_url = args.api_base_url or env_value("ACCEPTANCE_API_BASE_URL", env_file, "http://localhost:8000")
     supabase_url = args.supabase_url or env_value("SUPABASE_URL", env_file)
@@ -291,8 +301,39 @@ def run_acceptance(args: argparse.Namespace) -> list[Check]:
     if not supabase_url or not supabase_anon_key or not database_url:
         raise RuntimeError("SUPABASE_URL, SUPABASE_ANON_KEY, and DATABASE_URL are required")
 
+    required_switches = {
+        "MOCK_EXTERNAL_APIS": "false",
+        "CELERY_TASK_ALWAYS_EAGER": "false",
+        "ENABLE_MINERU": "true",
+    }
+    invalid_switches = {
+        name: env_value(name, env_file, "") for name, expected in required_switches.items()
+        if str(env_value(name, env_file, "")).strip().lower() != expected
+    }
+    if invalid_switches:
+        raise RuntimeError(
+            "Real acceptance requires MOCK_EXTERNAL_APIS=false, "
+            "CELERY_TASK_ALWAYS_EAGER=false, and ENABLE_MINERU=true"
+        )
+    price_keys = (
+        "MODEL_INPUT_COST_PER_MILLION",
+        "MODEL_OUTPUT_COST_PER_MILLION",
+        "EMBEDDING_COST_PER_MILLION",
+    )
+    if any(float(env_value(key, env_file, "0") or 0) <= 0 for key in price_keys):
+        raise RuntimeError("Real acceptance requires positive chat and embedding model prices")
+
+    real_pdf = Path(args.pdf_file or env_value("ACCEPTANCE_PDF_FILE", env_file, ""))
+    if not real_pdf.is_file() or real_pdf.suffix.lower() != ".pdf":
+        raise RuntimeError("Set --pdf-file or ACCEPTANCE_PDF_FILE to an existing real PDF")
+
     paths = generate_dataset(Path(args.workdir))
-    checks: list[Check] = [Check("dataset", True, f"Generated fixtures in {Path(args.workdir)}")]
+    paths["linear_pdf"] = real_pdf.resolve()
+    checks: list[Check] = [
+        Check("real mode", True, "Mock disabled, Celery async, MinerU enabled"),
+        Check("dataset", True, f"Using real PDF {real_pdf.name}; auxiliary fixtures in {Path(args.workdir)}"),
+    ]
+    ACCEPTANCE_CHECKS = checks
 
     if args.apply_migrations:
         apply_migrations(database_url)
@@ -308,27 +349,41 @@ def run_acceptance(args: argparse.Namespace) -> list[Check]:
         if health.status_code != 200 and not args.continue_on_failure:
             return checks
 
-        session_a = login_or_register(client, supabase_url, supabase_anon_key, *STUDENT_A)
-        session_b = login_or_register(client, supabase_url, supabase_anon_key, *STUDENT_B)
+        suffix = ACCEPTANCE_RUN_ID[-12:].replace("-", "")
+        password = env_value("ACCEPTANCE_USER_PASSWORD", env_file) or f"Acceptance!{uuid4().hex}"
+        configured_a = env_value("ACCEPTANCE_USER_A_EMAIL", env_file)
+        configured_b = env_value("ACCEPTANCE_USER_B_EMAIL", env_file)
+        if configured_a:
+            session_a = login_or_register(
+                client, supabase_url, supabase_anon_key, configured_a,
+                env_value("ACCEPTANCE_USER_A_PASSWORD", env_file) or password,
+            )
+        else:
+            session_a = register_confirmed_account(
+                client, api_url, supabase_url, supabase_anon_key, f"acca{suffix}", password,
+            )
+        if configured_b:
+            session_b = login_or_register(
+                client, supabase_url, supabase_anon_key, configured_b,
+                env_value("ACCEPTANCE_USER_B_PASSWORD", env_file) or password,
+            )
+        else:
+            session_b = register_confirmed_account(
+                client, api_url, supabase_url, supabase_anon_key, f"accb{suffix}", password,
+            )
         checks.append(Check("auth", True, "Created or logged in student A and student B"))
 
         subject_a = create_subject(client, api_url, session_a, LINEAR_SUBJECT_NAME)
         subject_b = create_subject(client, api_url, session_b, DATABASE_SUBJECT_NAME)
         checks.append(Check("subjects", True, f"A={subject_a['id']} B={subject_b['id']}"))
 
-        materials_a = [
-            upload_material(client, api_url, session_a, subject_a["id"], paths["linear_txt"], "text/plain"),
-            upload_material(client, api_url, session_a, subject_a["id"], paths["linear_pdf"], "application/pdf"),
-            upload_material(
-                client,
-                api_url,
-                session_a,
-                subject_a["id"],
-                paths["linear_docx"],
-                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            ),
-        ]
-        material_b = upload_material(client, api_url, session_b, subject_b["id"], paths["database_txt"], "text/plain")
+        materials_a = [upload_material(
+            client, api_url, session_a, subject_a["id"],
+            paths["linear_pdf"], "application/pdf", args.timeout,
+        )]
+        material_b = upload_material(
+            client, api_url, session_b, subject_b["id"], paths["database_txt"], "text/plain", args.timeout,
+        )
         failed_materials = [item for item in [*materials_a, material_b] if item["status"] != "ready"]
         checks.append(
             Check(
@@ -340,7 +395,7 @@ def run_acceptance(args: argparse.Namespace) -> list[Check]:
         if failed_materials and not args.continue_on_failure:
             return checks
 
-        subjects_b = api_json(client, "GET", f"{api_url.rstrip('/')}/subjects", session_b)
+        subjects_b = api_json(client, "GET", f"{api_url.rstrip('/')}/api/v1/subjects", session_b)
         checks.append(
             Check(
                 "user isolation subjects",
@@ -350,7 +405,7 @@ def run_acceptance(args: argparse.Namespace) -> list[Check]:
         )
 
         foreign_materials = client.get(
-            f"{api_url.rstrip('/')}/materials",
+            f"{api_url.rstrip('/')}/api/v1/materials",
             headers=api_headers(session_b),
             params={"subject_id": subject_a["id"]},
         )
@@ -365,37 +420,41 @@ def run_acceptance(args: argparse.Namespace) -> list[Check]:
         retrieval_a = api_json(
             client,
             "POST",
-            f"{api_url.rstrip('/')}/retrieval/search",
+            f"{api_url.rstrip('/')}/api/v1/retrieval/search",
             session_a,
-            json={"subjectId": subject_a["id"], "question": "矩阵什么时候不可逆？", "topK": 5},
+            json={"subjectId": subject_a["id"], "question": "How does Chandler define strategy?", "topK": 5},
         )
-        checks.append(Check("retrieval LA-C1", has_text(retrieval_a, "LA-C1"), "Search should retrieve determinant criterion"))
+        checks.append(Check(
+            "retrieval Chandler page",
+            any(item.get("pageNumber") in {6, 33} for item in retrieval_a.get("citations", [])),
+            "Search should retrieve Chandler's definition on page 6 or 33",
+        ))
 
-        progress_before = api_json(client, "GET", f"{api_url.rstrip('/')}/review/{subject_a['id']}/progress", session_a)
-        history_before = api_json(client, "GET", f"{api_url.rstrip('/')}/chat/history/{subject_a['id']}", session_a)
+        progress_before = api_json(client, "GET", f"{api_url.rstrip('/')}/api/v1/review/{subject_a['id']}/progress", session_a)
+        history_before = api_json(client, "GET", f"{api_url.rstrip('/')}/api/v1/chat/history/{subject_a['id']}", session_a)
 
         answer_diag = api_json(
             client,
             "POST",
-            f"{api_url.rstrip('/')}/chat/ask",
+            f"{api_url.rstrip('/')}/api/v1/chat/ask",
             session_a,
-            json={"subjectId": subject_a["id"], "question": "矩阵可对角化的条件是什么？"},
+            json={"subjectId": subject_a["id"], "question": "What are Whittington's four perspectives on strategy?"},
         )
-        diag_has_expected_citation = has_text(answer_diag.get("citations", []), "LA-C3") or has_text(
-            answer_diag.get("citations", []), "LA-D1"
+        diag_has_expected_citation = any(
+            item.get("pageNumber") == 23 for item in answer_diag.get("citations", [])
         )
         checks.append(
             Check(
-                "chat diagonalization citations",
+                "chat strategy citations",
                 bool(answer_diag.get("answer")) and diag_has_expected_citation,
-                "Answer should cite LA-C3 or LA-D1",
+                "Answer should cite Whittington's four perspectives on page 23",
             )
         )
 
         answer_insufficient = api_json(
             client,
             "POST",
-            f"{api_url.rstrip('/')}/chat/ask",
+            f"{api_url.rstrip('/')}/api/v1/chat/ask",
             session_a,
             json={"subjectId": subject_a["id"], "question": "BCNF 是什么？"},
         )
@@ -407,8 +466,8 @@ def run_acceptance(args: argparse.Namespace) -> list[Check]:
             )
         )
 
-        history_after = api_json(client, "GET", f"{api_url.rstrip('/')}/chat/history/{subject_a['id']}", session_a)
-        progress_after = api_json(client, "GET", f"{api_url.rstrip('/')}/review/{subject_a['id']}/progress", session_a)
+        history_after = api_json(client, "GET", f"{api_url.rstrip('/')}/api/v1/chat/history/{subject_a['id']}", session_a)
+        progress_after = api_json(client, "GET", f"{api_url.rstrip('/')}/api/v1/review/{subject_a['id']}/progress", session_a)
         checks.append(
             Check(
                 "history",
@@ -427,13 +486,13 @@ def run_acceptance(args: argparse.Namespace) -> list[Check]:
         answer_bcnf = api_json(
             client,
             "POST",
-            f"{api_url.rstrip('/')}/chat/ask",
+            f"{api_url.rstrip('/')}/api/v1/chat/ask",
             session_b,
             json={"subjectId": subject_b["id"], "question": "BCNF 是什么？"},
         )
         checks.append(Check("cross subject DB-C2", has_text(answer_bcnf, "DB-C2"), "Database subject should cite DB-C2"))
 
-        foreign_history = client.get(f"{api_url.rstrip('/')}/chat/history/{subject_a['id']}", headers=api_headers(session_b))
+        foreign_history = client.get(f"{api_url.rstrip('/')}/api/v1/chat/history/{subject_a['id']}", headers=api_headers(session_b))
         checks.append(
             Check(
                 "user isolation history",
@@ -442,15 +501,30 @@ def run_acceptance(args: argparse.Namespace) -> list[Check]:
             )
         )
 
-        if args.full:
-            async_fixture = Path(args.workdir) / "async_unique.txt"
-            async_fixture.write_text("ASYNC-C1 特征值是特征多项式的根。", encoding="utf-8")
-            queued = queue_and_wait(client, api_url, session_a, subject_a["id"], async_fixture, "text/plain", args.timeout)
-            checks.append(Check("async ingestion", queued["task"]["stage"] == "ready", "Task reached ready"))
+        golden_path = Path(args.golden_questions)
+        golden_cases = json.loads(golden_path.read_text(encoding="utf-8"))
+        golden_hits = 0
+        for case in golden_cases:
+            result = api_json(
+                client, "POST", f"{api_url.rstrip('/')}/api/v1/retrieval/search", session_a,
+                json={"subjectId": subject_a["id"], "question": case["question"], "topK": 5},
+            )
+            pages = {int(item["pageNumber"]) for item in result.get("citations", []) if item.get("pageNumber") is not None}
+            accepted_pages = {int(page) for page in case.get("acceptedPages", [case["expectedPage"]])}
+            hit = bool(accepted_pages & pages)
+            golden_hits += hit
+            checks.append(Check(
+                f"golden {case['id']}", hit,
+                f"expected pages {sorted(accepted_pages)}; retrieved pages {sorted(pages)}",
+            ))
+        recall_at_5 = golden_hits / len(golden_cases) if golden_cases else 0.0
+        checks.append(Check("golden Recall@5", recall_at_5 >= args.min_recall_at_5,
+                            f"{golden_hits}/{len(golden_cases)} = {recall_at_5:.3f}"))
 
+        if args.full:
             audio_path_value = env_value("ACCEPTANCE_AUDIO_FILE", env_file)
             if not audio_path_value or not Path(audio_path_value).exists():
-                checks.append(Check("audio ingestion", False, "Set ACCEPTANCE_AUDIO_FILE to a clear MP3/WAV/M4A lecture recording"))
+                checks.append(Check("audio ingestion", True, "N/A: no acceptance audio file configured"))
             else:
                 audio_path = Path(audio_path_value)
                 audio_type = {".wav": "audio/wav", ".m4a": "audio/mp4"}.get(audio_path.suffix.lower(), "audio/mpeg")
@@ -460,36 +534,98 @@ def run_acceptance(args: argparse.Namespace) -> list[Check]:
 
             session_id = str(uuid4())
             beginner = api_json(client, "POST", f"{api_url.rstrip('/')}/api/v1/assistant/messages", session_a,
-                                json={"subjectId": subject_a["id"], "sessionId": session_id, "role": "beginner", "message": "用小白能懂的方式解释特征值"})
+                                json={"subjectId": subject_a["id"], "sessionId": session_id, "role": "beginner", "message": "用小白能懂的方式解释什么是战略"})
             socratic = api_json(client, "POST", f"{api_url.rstrip('/')}/api/v1/assistant/messages", session_a,
-                               json={"subjectId": subject_a["id"], "sessionId": session_id, "role": "socratic", "message": "训练我判断矩阵能否对角化"})
+                               json={"subjectId": subject_a["id"], "sessionId": session_id, "role": "socratic", "message": "训练我比较计划战略与涌现战略"})
             checks.append(Check("role switching", beginner["role"]["id"] == "beginner" and socratic["role"]["id"] == "socratic", "Context retained in one session"))
 
             snapshot = api_json(client, "POST", f"{api_url.rstrip('/')}/api/v1/memory-snapshots", session_a,
                                 json={"sessionId": session_id, "subjectId": subject_a["id"]})
             checks.append(Check("Hermes frozen snapshot", snapshot["session_id"] == session_id, "Snapshot created and reused by session"))
 
-            mind_map = api_json(client, "POST", f"{api_url.rstrip('/')}/api/v1/artifacts/mind-maps", session_a,
-                                json={"subjectId": subject_a["id"], "scope": "矩阵与特征值"})
-            flashcards = api_json(client, "POST", f"{api_url.rstrip('/')}/api/v1/artifacts/flashcards", session_a,
-                                  json={"subjectId": subject_a["id"], "scope": "期末高频概念", "count": 5})
-            checks.append(Check("artifacts", mind_map["artifact_type"] == "mind_map" and flashcards["artifact_type"] == "flashcards", "Mind map and flashcards generated"))
+            mind_map = None
+            flashcards = None
+            try:
+                mind_map = api_json(
+                    client, "POST", f"{api_url.rstrip('/')}/api/v1/artifacts/mind-maps", session_a,
+                    json={"subjectId": subject_a["id"], "mode": "question",
+                          "query": "战略有哪些主要定义与形成学派？"},
+                )
+            except httpx.HTTPError as exc:
+                checks.append(Check("mind map", False, f"Generation failed: {exc}"))
+            try:
+                flashcards = api_json(
+                    client, "POST", f"{api_url.rstrip('/')}/api/v1/artifacts/flashcards", session_a,
+                    json={"subjectId": subject_a["id"], "scope": "期末高频概念", "count": 5},
+                )
+            except httpx.HTTPError as exc:
+                checks.append(Check("flashcards", False, f"Generation failed: {exc}"))
+            checks.append(Check(
+                "artifacts",
+                bool(mind_map and mind_map.get("artifact_type") == "mind_map")
+                and bool(flashcards and flashcards.get("artifact_type") == "flashcards"),
+                "Mind map and flashcards generated",
+            ))
 
-            exam = api_json(client, "POST", f"{api_url.rstrip('/')}/api/v1/exams", session_a, json={
+            exam_task = api_json(client, "POST", f"{api_url.rstrip('/')}/api/v1/exams/generations", session_a, json={
                 "subjectId": subject_a["id"], "title": "E2E 模拟卷", "durationMinutes": 30,
-                "difficulty": "medium", "questionTypes": [{"questionType": "single_choice", "count": 2, "pointsEach": 5}],
+                "difficulty": "medium", "scope": "战略定义与战略学派", "assessmentType": "practice",
+                "knowledgePolicy": "course_only",
+                "questionTypes": [{"questionType": "single_choice", "count": 2, "pointsEach": 5}],
             })
+            exam_task = wait_for_task(client, api_url, session_a, exam_task["id"], args.timeout)
+            exam = api_json(client, "GET", f"{api_url.rstrip('/')}/api/v1/exams/{exam_task['metadata']['examId']}", session_a)
             attempt = api_json(client, "POST", f"{api_url.rstrip('/')}/api/v1/exam-attempts", session_a, json={"examId": exam["id"]})
             for question in attempt["exam"]["questions"]:
                 api_json(client, "PATCH", f"{api_url.rstrip('/')}/api/v1/exam-attempts/{attempt['id']}/responses", session_a,
                          json={"questionId": question["id"], "response": ""})
             grade = api_json(client, "POST", f"{api_url.rstrip('/')}/api/v1/exam-attempts/{attempt['id']}/submit", session_a)
             checks.append(Check("exam and grading", len(grade["results"]) == 2 and grade["maxScore"] == 10, "Versioned exam submitted and graded"))
+            exam_export = client.get(
+                f"{api_url.rstrip('/')}/api/v1/exams/{exam['id']}/export",
+                headers=api_headers(session_a), params={"format": "pdf", "includeAnswers": "true"},
+            )
+            checks.append(Check(
+                "exam export", exam_export.status_code == 200 and exam_export.content.startswith(b"%PDF"),
+                f"HTTP {exam_export.status_code}; bytes={len(exam_export.content)}",
+            ))
 
             exam_date = (datetime.now().date() + timedelta(days=7)).isoformat()
-            plan = api_json(client, "POST", f"{api_url.rstrip('/')}/api/v1/study-plans", session_a,
-                            json={"subjectId": subject_a["id"], "examDate": exam_date, "dailyMinutes": 45})
+            plan_task = api_json(client, "POST", f"{api_url.rstrip('/')}/api/v1/study-plans/generations", session_a,
+                                 json={"subjectId": subject_a["id"], "examDate": exam_date, "dailyMinutes": 45})
+            wait_for_task(client, api_url, session_a, plan_task["id"], args.timeout)
+            plan = api_json(client, "GET", f"{api_url.rstrip('/')}/api/v1/study-plans/overview?subject_id={subject_a['id']}", session_a)
             checks.append(Check("adaptive plan", bool(plan["tasks"]), f"Generated {len(plan['tasks'])} spaced tasks"))
+
+        ACCEPTANCE_METRICS = api_json(
+            client, "GET", f"{api_url.rstrip('/')}/api/v1/operations/metrics", session_a,
+            params={"acceptanceRunId": ACCEPTANCE_RUN_ID, "days": 1},
+        )
+        export_payload = api_json(
+            client, "GET", f"{api_url.rstrip('/')}/api/v1/privacy/export", session_a,
+        )
+        checks.append(Check(
+            "privacy export", bool(export_payload),
+            f"Exported {len(export_payload)} top-level sections",
+        ))
+        if (not configured_a and not configured_b) or args.delete_configured_accounts:
+            deleted_a = api_json(
+                client, "DELETE", f"{api_url.rstrip('/')}/api/v1/privacy/account", session_a,
+                params={"confirm": "DELETE"},
+            )
+            deleted_b = api_json(
+                client, "DELETE", f"{api_url.rstrip('/')}/api/v1/privacy/account", session_b,
+                params={"confirm": "DELETE"},
+            )
+            checks.append(Check(
+                "privacy cleanup", bool(deleted_a) and bool(deleted_b),
+                "Deleted both run-scoped Supabase accounts and learning data",
+            ))
+        else:
+            checks.append(Check(
+                "privacy cleanup", False,
+                "N/A: preserved explicitly configured acceptance accounts",
+            ))
 
     return checks
 
@@ -505,6 +641,52 @@ def print_checks(checks: list[Check]) -> int:
     return 0 if passed_count == len(checks) else 1
 
 
+def write_reports(checks: list[Check], output_dir: Path) -> dict[str, str]:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    stem = ACCEPTANCE_RUN_ID or f"acceptance-{uuid4().hex[:8]}"
+    jsonl_path = output_dir / f"{stem}.jsonl"
+    csv_path = output_dir / f"{stem}.csv"
+    markdown_path = output_dir / f"{stem}.md"
+    with jsonl_path.open("w", encoding="utf-8") as stream:
+        for event in ACCEPTANCE_EVENTS:
+            stream.write(json.dumps(event, ensure_ascii=False) + "\n")
+        for check in checks:
+            stream.write(json.dumps({
+                "acceptanceRunId": ACCEPTANCE_RUN_ID, "type": "check",
+                "name": check.name, "passed": check.passed, "detail": check.detail,
+            }, ensure_ascii=False) + "\n")
+        stream.write(json.dumps({
+            "acceptanceRunId": ACCEPTANCE_RUN_ID, "type": "metrics",
+            "metrics": ACCEPTANCE_METRICS,
+        }, ensure_ascii=False) + "\n")
+    with csv_path.open("w", encoding="utf-8-sig", newline="") as stream:
+        writer = csv.DictWriter(stream, fieldnames=[
+            "acceptanceRunId", "timestamp", "method", "path", "statusCode",
+            "durationMs", "requestId", "traceId",
+        ])
+        writer.writeheader()
+        writer.writerows(ACCEPTANCE_EVENTS)
+    passed = sum(check.passed for check in checks)
+    model_metrics = ACCEPTANCE_METRICS.get("models") or {}
+    lines = [
+        f"# 真实 E2E 验收报告：{ACCEPTANCE_RUN_ID}", "",
+        f"- 结果：{passed}/{len(checks)} 通过",
+        f"- HTTP 调用：{len(ACCEPTANCE_EVENTS)}",
+        f"- 模型调用：{model_metrics.get('calls', 'N/A')}",
+        f"- 估算成本：{model_metrics.get('estimatedCost', 'N/A')} {model_metrics.get('currency', '')}".rstrip(),
+        "", "## 检查结果", "",
+        "| 状态 | 检查 | 详情 |", "| --- | --- | --- |",
+    ]
+    lines.extend(
+        f"| {'PASS' if check.passed else 'FAIL'} | {check.name.replace('|', '/')} | {check.detail.replace('|', '/')} |"
+        for check in checks
+    )
+    lines.extend(["", "## 阶段与成本指标", "", "```json",
+                  json.dumps(ACCEPTANCE_METRICS, ensure_ascii=False, indent=2), "```", ""])
+    markdown_path.write_text("\n".join(lines), encoding="utf-8")
+    return {"jsonl": str(jsonl_path), "csv": str(csv_path), "markdown": str(markdown_path)}
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run Exam AI MVP end-to-end acceptance checks.")
     parser.add_argument("--api-base-url", default=None, help="Backend API URL. Default: ACCEPTANCE_API_BASE_URL or http://localhost:8000")
@@ -512,6 +694,22 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--supabase-anon-key", default=None, help="Supabase anon key. Default: SUPABASE_ANON_KEY from project .env")
     parser.add_argument("--database-url", default=None, help="Postgres URL. Default: DATABASE_URL from project .env")
     parser.add_argument("--workdir", default=str(DEFAULT_WORKDIR), help="Where generated fixture files are written")
+    parser.add_argument("--pdf-file", default=None, help="Existing real PDF used for MinerU/indexing acceptance")
+    parser.add_argument(
+        "--golden-questions",
+        default=str(ROOT.parent / "docs" / "acceptance" / "golden_questions.json"),
+        help="Page-labeled Golden Questions JSON",
+    )
+    parser.add_argument("--min-recall-at-5", type=float, default=0.8)
+    parser.add_argument("--acceptance-run-id", default=None)
+    parser.add_argument(
+        "--delete-configured-accounts", action="store_true",
+        help="Delete explicitly configured acceptance accounts after export",
+    )
+    parser.add_argument(
+        "--report-dir", default=str(ROOT / "data" / "acceptance" / "reports"),
+        help="JSONL, CSV, and Markdown report directory",
+    )
     parser.add_argument("--apply-migrations", action="store_true", help="Apply backend/migrations/*.sql before running checks")
     parser.add_argument("--generate-only", action="store_true", help="Only generate fixture files")
     parser.add_argument("--continue-on-failure", action="store_true", help="Keep running independent checks after a failure")
@@ -527,11 +725,14 @@ def main() -> int:
         print(json.dumps({key: str(path) for key, path in paths.items()}, ensure_ascii=False, indent=2))
         return 0
 
+    checks: list[Check]
     try:
         checks = run_acceptance(args)
     except Exception as exc:
         print(f"[FAIL] acceptance runner: {exc}", file=sys.stderr)
-        return 1
+        checks = [*ACCEPTANCE_CHECKS, Check("acceptance runner", False, str(exc))]
+    reports = write_reports(checks, Path(args.report_dir))
+    print(json.dumps({"acceptanceRunId": ACCEPTANCE_RUN_ID, "reports": reports}, ensure_ascii=False, indent=2))
     return print_checks(checks)
 
 

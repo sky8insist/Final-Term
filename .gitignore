@@ -18,6 +18,7 @@ dist/
 build/
 backend/data/
 backend/backend/data/
+data/dayend/*.sqlite
 .run/
 pytest-cache-files-*/
 .npm-cache/

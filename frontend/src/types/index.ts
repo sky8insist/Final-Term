@@ -1,8 +1,8 @@
 export type Subject = { id: string; name: string; description: string; progress: number; mastery: number; examDate?: string | null; externalKnowledgeEnabled?: boolean };
 export type Material = { id: string; subjectId: string; name: string; type: string; status: 'queued' | 'parsing' | 'embedding' | 'indexing' | 'indexed' | 'failed'; size: number; uploadedAt: string; errorMessage?: string | null };
 export type ProcessingTask = { id: string; subjectId?: string; materialId?: string | null; taskType?: string; status: 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled'; stage: string; progress: number; errorCode?: string | null; errorMessage?: string | null; metadata?: Record<string, unknown> };
-export type Citation = { id: string; sourceName: string; pageNumber?: number; text: string; sourceType?: 'material' | 'external' };
-export type AnswerGeneration = { provider: string; model: string; mocked: boolean; grounded: boolean; citationCount: number; retrievalSources: string[]; externalUsed?: boolean; evidenceAssessment?: { sufficient: boolean; relevance: number; coverage: number; reason: string } };
+type Citation = { id: string; sourceName: string; pageNumber?: number; text: string; sourceType?: 'material' | 'external' };
+type AnswerGeneration = { provider: string; model: string; mocked: boolean; grounded: boolean; citationCount: number; retrievalSources: string[]; externalUsed?: boolean; evidenceAssessment?: { sufficient: boolean; relevance: number; coverage: number; reason: string } };
 export type TutorRole = 'beginner' | 'crash_course' | 'socratic' | 'examiner';
 export type KnowledgePolicy = 'course_only' | 'course_first' | 'expanded';
 export type DialogueAct = 'answer_to_pending_question' | 'followup_question_same_topic' | 'new_question' | 'request_hint' | 'request_full_solution' | 'confirmation' | 'challenge_or_correction' | 'clarification' | 'meta_command' | 'ambiguous';
@@ -19,7 +19,7 @@ export type ChatMessage = {
   interaction?: { id?: string | null; status: string; expectsReply: boolean } | null;
 };
 export type StudyPhase = { id: string; name: string; goal: string; startDate: string; endDate: string };
-export type StudyTaskLink = { type: string; href: string; label: string };
+type StudyTaskLink = { type: string; href: string; label: string };
 export type StudyTask = {
   id: string; subjectId: string; title: string; time: string; completed: boolean;
   scheduledDate?: string; estimatedMinutes?: number; priority?: number; knowledgeKey?: string;
@@ -31,7 +31,7 @@ export type StudyTask = {
     spacingOccurrence?: number; needScore?: number;
   };
 };
-export type StudyPlan = {
+type StudyPlan = {
   id: string; title: string; exam_date?: string; examDate?: string; daily_minutes?: number; dailyMinutes?: number;
   strategy?: { phases?: StudyPhase[]; warnings?: string[]; signalStats?: Record<string, number>; dataSufficient?: boolean; dailyUsage?: Record<string, number> };
 };
@@ -40,15 +40,15 @@ export type StudyPlanInput = { subjectId: string; examDate: string; dailyMinutes
 export type StudyPlanPreview = { targetDate: string; daysRemaining: number; dataSufficient: boolean; signalStats: Record<string, number>; estimatedKnowledgePoints: number; estimatedMinutes: number; availableMinutes: number; timeSufficient: boolean; warnings: string[]; phases: StudyPhase[] };
 export type DashboardData = { subjects: Subject[]; todayTasks: StudyTask[]; stats: { studyMinutes: number; completedTasks: number; streakDays: number } };
 export type MindMapMode = 'question' | 'topic' | 'chapter';
-export type MindMapNodeType = 'root' | 'concept' | 'definition' | 'comparison' | 'process' | 'example' | 'exam_point' | 'warning';
+type MindMapNodeType = 'root' | 'concept' | 'definition' | 'comparison' | 'process' | 'example' | 'exam_point' | 'warning';
 export type MindMapNode = {
   id: string; parentId: string | null; label: string; type: MindMapNodeType; level: number;
   importance: number; examImportance: 'high' | 'medium' | 'low'; mastery: number | null;
   description: string; sourceIds: string[]; order: number;
 };
-export type MindMapEdge = { source: string; target: string; relation: string };
-export type MindMapEvaluation = { relevance: number; coverage: number; hierarchy: number; grounding: number; redundancy: number };
-export type MindMapSource = { id: string; sourceName: string; pageNumber?: number; text: string };
+type MindMapEdge = { source: string; target: string; relation: string };
+type MindMapEvaluation = { relevance: number; coverage: number; hierarchy: number; grounding: number; redundancy: number };
+type MindMapSource = { id: string; sourceName: string; pageNumber?: number; text: string };
 export type MindMapData = {
   artifactId?: string; title: string; focusQuestion: string; summary: string; mode: MindMapMode;
   evidenceInsufficient: boolean; nodes: MindMapNode[]; edges: MindMapEdge[];
@@ -62,7 +62,7 @@ export type ExamQuestionType = 'single_choice' | 'multiple_choice' | 'true_false
 export type PracticeQuestionType = Extract<ExamQuestionType, 'single_choice' | 'multiple_choice' | 'true_false' | 'fill_blank' | 'short_answer'>;
 export type ExamQuestion = { id: string; questionType: ExamQuestionType; stem: string; options: string[]; knowledgeKey: string; difficulty: string; points: number; sequenceIndex: number };
 export type Exam = { id: string; title: string; score?: number | null; questionCount: number; questionTypes?: ExamQuestionType[]; createdAt?: string; difficulty?: string; status?: string };
-export type ExamEvidence = { id: string; sourceType: 'material' | 'external'; sourceName?: string; pageNumber?: number; url?: string; relevanceScore?: number; importanceScore?: number };
+type ExamEvidence = { id: string; sourceType: 'material' | 'external'; sourceName?: string; pageNumber?: number; url?: string; relevanceScore?: number; importanceScore?: number };
 export type ExamGeneration = {
   knowledgePolicy: KnowledgePolicy;
   retrieval: { courseEvidenceCount?: number; externalEvidenceCount?: number; externalAttempted?: boolean; externalUsed?: boolean; warnings?: string[] };

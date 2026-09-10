@@ -13,9 +13,6 @@ client = TestClient(app)
 def test_study_plan_routes_require_login():
     assert client.get("/api/v1/study-plans/today").status_code == 401
     assert client.get("/api/v1/review/subject/mastery").status_code == 401
-    assert client.post("/api/v1/study-plans", json={
-        "subjectId": "subject", "examDate": (date.today() + timedelta(days=7)).isoformat(),
-    }).status_code == 401
     assert client.post("/api/v1/study-plans/preview", json={
         "subjectId": "subject", "examDate": (date.today() + timedelta(days=7)).isoformat(),
     }).status_code == 401

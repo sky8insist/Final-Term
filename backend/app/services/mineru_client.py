@@ -9,6 +9,7 @@ from urllib.parse import urlparse
 import httpx
 
 from app.config.settings import settings
+from app.services.observability_service import record_operation
 
 
 class MinerUError(RuntimeError):
@@ -109,14 +110,27 @@ class MinerUClient:
         raise MinerUError("Unable to contact MinerU", code="network_error", retryable=True) from last_error
 
     def _request_json(self, method: str, url: str, **kwargs) -> dict:
+        started_at = time.perf_counter()
         attempts = max(settings.mineru_transport_retries, 1)
         last_error: MinerUError | None = None
         for attempt in range(attempts):
             try:
-                return self._decode(self._request(method, url, **kwargs))
+                result = self._decode(self._request(method, url, **kwargs))
+                record_operation(
+                    operation="external_api", stage="mineru_control", status="succeeded",
+                    started_at=started_at,
+                    metadata={"method": method, "path": urlparse(url).path, "attempts": attempt + 1},
+                )
+                return result
             except MinerUError as exc:
                 last_error = exc
                 if not exc.retryable or attempt + 1 >= attempts:
+                    record_operation(
+                        operation="external_api", stage="mineru_control", status="failed",
+                        started_at=started_at,
+                        metadata={"method": method, "path": urlparse(url).path,
+                                  "attempts": attempt + 1, "errorCode": exc.code},
+                    )
                     raise
                 self.sleep(min(2 ** attempt, 5))
         raise last_error or MinerUError("MinerU request failed")

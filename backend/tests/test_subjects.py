@@ -21,7 +21,7 @@ def test_create_subject_forwards_external_knowledge_flag(monkeypatch):
     app.dependency_overrides[get_current_user] = _user
     try:
         response = client.post(
-            "/subjects",
+            "/api/v1/subjects",
             json={"name": "Algorithms", "external_knowledge_enabled": True},
         )
     finally:
@@ -40,7 +40,7 @@ def test_update_subject_forwards_external_knowledge_flag(monkeypatch):
     app.dependency_overrides[get_current_user] = _user
     try:
         response = client.patch(
-            "/subjects/subject-1",
+            "/api/v1/subjects/subject-1",
             json={"external_knowledge_enabled": True},
         )
     finally:

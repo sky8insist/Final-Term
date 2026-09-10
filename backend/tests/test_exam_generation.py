@@ -10,6 +10,7 @@ from app.main import app
 from app.models.exam import ExamGenerateRequest
 from app.models.user import CurrentUser
 from app.services import exam_generation_service, exam_service
+from app.services.generation_task_service import payload_fingerprint
 from app.services.llm_service import LLMServiceError
 
 
@@ -42,6 +43,10 @@ def test_generation_request_round_trips_through_task_metadata():
     assert "questionTypes" in stored and "question_types" not in stored
     assert "questionType" in stored["questionTypes"][0]
     assert ExamGenerateRequest(**stored) == request
+
+
+def test_generation_fingerprint_is_stable_across_key_order():
+    assert payload_fingerprint({"b": 2, "a": 1}) == payload_fingerprint({"a": 1, "b": 2})
 
 
 def test_practice_requires_topic_but_mock_exam_does_not():

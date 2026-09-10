@@ -73,23 +73,20 @@ class Settings(BaseSettings):
 
     # Feature flags keep unfinished capabilities explicit and make test/dev
     # environments deterministic while the application is expanded.
-    enable_api_v1: bool = True
-    enable_async_processing: bool = True
-    enable_multimodal: bool = True
     enable_hermes_memory: bool = True
     enable_external_knowledge: bool = False
     enable_wikipedia_fallback: bool = True
     wikipedia_language: str = "zh"
-    enable_exam_generation: bool = True
 
     request_id_header: str = "X-Request-ID"
+    trace_id_header: str = "X-Trace-ID"
+    acceptance_run_id_header: str = "X-Acceptance-Run-ID"
     redis_url: str = "redis://localhost:6379/0"
     celery_task_always_eager: bool = False
     material_storage_bucket: str = "study-materials"
     task_max_retries: int = 3
     assistant_memory_char_limit: int = 1400
     user_profile_char_limit: int = 900
-    memory_consolidation_threshold: float = 0.8
     web_search_url: str | None = Field(default=None, validation_alias="EXAMAI_WEB_SEARCH_URL")
     web_search_api_key: str | None = Field(default=None, validation_alias="EXAMAI_WEB_SEARCH_API_KEY")
     web_search_max_results: int = 5
@@ -102,13 +99,41 @@ class Settings(BaseSettings):
     max_active_tasks_per_user: int = 3
     max_daily_upload_mb: int = 1000
     original_file_retention_days: int = 90
-    model_call_budget_usd: float = 5.0
-    model_input_cost_per_million: float = 0.0
-    model_output_cost_per_million: float = 0.0
-    embedding_cost_per_million: float = 0.0
+    model_call_budget: float = Field(
+        default=35.0,
+        validation_alias=AliasChoices("MODEL_CALL_BUDGET", "MODEL_CALL_BUDGET_USD"),
+    )
+    model_input_cost_per_million: float = 1.0
+    model_output_cost_per_million: float = 2.0
+    embedding_cost_per_million: float = 0.7
+    model_price_currency: str = "CNY"
     vision_cost_per_call: float = 0.0
     transcription_cost_per_minute: float = 0.0
     prompt_version: str = "1.0.0"
+
+    # Dayend V3 is deliberately isolated from the existing exam-assistant
+    # routing. `demo` may simulate outputs; `multi_agent` never falls back to
+    # rules when an LLM invocation fails.
+    dayend_mode: str = Field(default="demo", validation_alias="DAYEND_MODE")
+    dayend_checkpoint_path: str = Field(
+        default="backend/data/dayend/checkpoints.sqlite",
+        validation_alias="DAYEND_CHECKPOINT_PATH",
+    )
+    dayend_store_path: str = Field(
+        default="backend/data/dayend/business.sqlite",
+        validation_alias="DAYEND_STORE_PATH",
+    )
+    dayend_model: str | None = Field(default=None, validation_alias="DAYEND_LLM_MODEL")
+    # All Dayend agents use the existing SiliconFlow OpenAI-compatible API.
+    # These overrides permit quality/cost routing without introducing another provider.
+    dayend_orchestrator_model: str | None = Field(default=None, validation_alias="DAYEND_ORCHESTRATOR_MODEL")
+    dayend_specialist_model: str | None = Field(default=None, validation_alias="DAYEND_SPECIALIST_MODEL")
+    dayend_critic_model: str | None = Field(default=None, validation_alias="DAYEND_CRITIC_MODEL")
+    dayend_safety_model: str | None = Field(default=None, validation_alias="DAYEND_SAFETY_MODEL")
+    dayend_max_retries: int = Field(default=2, ge=0, le=5, validation_alias="DAYEND_MAX_RETRIES")
+    dayend_agent_timeout_seconds: float = Field(
+        default=120.0, gt=0, le=300, validation_alias="DAYEND_AGENT_TIMEOUT_SECONDS",
+    )
 
     model_config = SettingsConfigDict(
         env_file=Path(__file__).resolve().parents[3] / ".env",

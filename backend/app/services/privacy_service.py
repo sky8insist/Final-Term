@@ -12,6 +12,7 @@ USER_TABLES = [
     "procedural_skills", "artifacts", "exam_blueprints", "questions", "exams",
     "exam_attempts", "exam_responses", "grading_results", "wrong_answers",
     "study_plans", "review_tasks", "model_call_logs", "security_events",
+    "operation_metrics",
     "audio_segments", "knowledge_points", "rubrics", "procedural_skill_versions",
     "mastery_history",
 ]
@@ -37,7 +38,39 @@ def export_user_data(*, user_id: str) -> dict:
 
 def delete_learning_data(*, user_id: str) -> dict:
     client = get_supabase_client()
-    chunks = client.table("material_chunks").select("material_id,subject_id,embedding_dimensions").eq("user_id", user_id).not_.is_("embedding_dimensions", "null").execute().data
+    exam_ids = [
+        str(row["id"]) for row in
+        client.table("exams").select("id").eq("user_id", user_id).execute().data
+    ]
+    question_ids = [
+        str(row["id"]) for row in
+        client.table("questions").select("id").eq("user_id", user_id).execute().data
+    ]
+    for table in ("wrong_answers", "grading_results", "exam_responses"):
+        client.table(table).delete().eq("user_id", user_id).execute()
+    client.table("exam_attempts").delete().eq("user_id", user_id).execute()
+    if exam_ids:
+        client.table("exam_questions").delete().in_("exam_id", exam_ids).execute()
+        client.table("exam_sections").delete().in_("exam_id", exam_ids).execute()
+        client.table("exams").delete().in_("id", exam_ids).eq("user_id", user_id).execute()
+    if question_ids:
+        client.table("exam_questions").delete().in_("question_id", question_ids).execute()
+        client.table("question_versions").delete().in_("question_id", question_ids).execute()
+        client.table("questions").delete().in_("id", question_ids).eq("user_id", user_id).execute()
+    client.table("exam_blueprints").delete().eq("user_id", user_id).execute()
+    index_rows = (
+        client.table("lightrag_material_index")
+        .select("material_id,subject_id,status")
+        .eq("user_id", user_id).eq("status", "indexed").execute().data
+    )
+    material_ids = [str(row["material_id"]) for row in index_rows]
+    chunks = (
+        client.table("material_chunks")
+        .select("material_id,subject_id,embedding_dimensions")
+        .eq("user_id", user_id).in_("material_id", material_ids)
+        .not_.is_("embedding_dimensions", "null").execute().data
+        if material_ids else []
+    )
     indexed: dict[str, dict] = {}
     for row in chunks:
         indexed.setdefault(str(row["material_id"]), row)
@@ -63,7 +96,8 @@ def delete_learning_data(*, user_id: str) -> dict:
     # Subjects cascade through all subject-scoped learning records.
     client.table("subjects").delete().eq("user_id", user_id).execute()
     for table in ("memory_entries", "memory_write_requests", "memory_snapshots", "learning_events",
-                  "session_summaries", "procedural_skills", "learner_profiles", "model_call_logs"):
+                  "session_summaries", "procedural_skills", "learner_profiles", "model_call_logs",
+                  "operation_metrics"):
         client.table(table).delete().eq("user_id", user_id).execute()
     return {"deleted": True, "userId": user_id}
 

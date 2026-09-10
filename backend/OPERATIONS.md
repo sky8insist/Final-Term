@@ -5,7 +5,6 @@
 ```powershell
 .\.venv\Scripts\python.exe -m pytest -q -p no:cacheprovider tests
 .\.venv\Scripts\python.exe scripts\run_quality_eval.py
-.\.venv\Scripts\python.exe scripts\verify_plan_coverage.py
 ```
 
 Run `scripts/e2e_acceptance.py --full` with Supabase, Redis, the worker, configured model APIs,

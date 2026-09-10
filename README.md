@@ -1,6 +1,6 @@
 # Exam AI Assistant
 
-> 面向期末复习的多模态 AI 学习助手：上传课程资料，经过结构化解析、混合检索和引用约束问答，进一步生成提纲、闪卡、模拟考试、错题复盘与自适应复习计划。
+> 面向期末复习的多模态 AI 学习助手：上传课程资料，经过结构化解析、混合检索和引用约束问答，进一步生成提纲、闪卡、模拟考试、练习表现分析与自适应复习计划。
 
 [![Python](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115%2B-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
@@ -9,7 +9,7 @@
 
 ## 项目状态
 
-后端核心链路已经完成自动化与真实端到端验收：资料上传、异步处理、MinerU/本地解析、Embedding、pgvector、LightRAG、混合检索、引用问答、记忆、学习产物、考试、错题和复习计划均有对应服务或测试。
+后端核心链路具备自动化测试覆盖；真实外部服务端到端验收结果以 `docs/acceptance/` 中带时间和环境证据的报告为准，不以单元测试替代。
 
 ### Windows 中文编码
 
@@ -19,12 +19,7 @@
 Get-Content -Encoding UTF8 .\README.md
 ```
 
-前端当前是可运行的学习工作台，但需注意：
-
-- `VITE_MOCK_APP=true` 时，页面使用 `/api/workbench` 演示数据，不需要登录或外部 API。
-- `VITE_MOCK_APP=false` 时，资料列表、上传和任务进度使用真实 `/api/v1` 接口。
-- 其余部分页面仍连接 Workbench 演示接口；第一方 Supabase 登录/注册页面尚未接入。
-- 真实接口要求 Supabase Bearer Token；当前前端会从浏览器 `localStorage` 读取已有 Supabase 会话。
+前端只连接 `/api/v1` 正式业务接口，所有工作台页面均要求 Supabase 会话。后端不再挂载无前缀兼容业务路由，也不暴露 `/api/workbench/*` Mock 接口。
 
 ## 核心能力
 
@@ -35,7 +30,7 @@ Get-Content -Encoding UTF8 .\README.md
 - **引用约束问答**：答案携带资料、页码、块类型、时间范围等可追溯引用；资料不足时明确拒答。
 - **教学与记忆**：多种教学角色、会话冻结快照、核心记忆写入审批、学习画像与技能沉淀。
 - **学习产物**：提纲、思维导图、闪卡、公式表、术语表、对比表与速查表。
-- **考试闭环**：多题型试卷、作答、评分、错题诊断、变式题、掌握度趋势与复习计划。
+- **考试闭环**：多题型试卷、作答、评分、练习表现诊断、掌握度趋势与复习计划。
 - **安全与隔离**：Supabase Auth、JWT、RLS、用户/学科隔离、文件魔数校验、提示注入扫描和隐私导出/删除。
 
 ## 系统架构
@@ -151,9 +146,9 @@ Copy-Item .env.example .env
 
 | 模式 | 关键配置 | 适用场景 |
 | --- | --- | --- |
-| 前端演示 | `VITE_MOCK_APP=true`、`MOCK_EXTERNAL_APIS=true` | 无账号快速查看页面与交互 |
-| 本地完整链路 | `VITE_MOCK_APP=false`、本地 Supabase；可设 `CELERY_TASK_ALWAYS_EAGER=true` | 开发、接口联调和端到端验收 |
-| 正式部署 | 两个 MOCK 开关均为 `false`，`CELERY_TASK_ALWAYS_EAGER=false` | Redis/Worker、真实模型、MinerU 与生产密钥 |
+| 自动化测试 | `MOCK_EXTERNAL_APIS=true` | 不冒充真实模型验收的确定性测试 |
+| 本地完整链路 | `MOCK_EXTERNAL_APIS=false`、本地 Supabase；可设 `CELERY_TASK_ALWAYS_EAGER=true` | 开发与接口联调 |
+| 正式部署/真实验收 | `MOCK_EXTERNAL_APIS=false`、`CELERY_TASK_ALWAYS_EAGER=false` | Redis/Worker、真实模型、MinerU 与生产密钥 |
 
 ### 主要环境变量
 
@@ -164,7 +159,6 @@ Copy-Item .env.example .env
 | `APP_ENV` | `development` | 环境名称 |
 | `FRONTEND_ORIGIN` | `http://localhost:5173` | CORS 允许的前端 Origin |
 | `VITE_API_BASE_URL` | `http://localhost:8000` | 浏览器访问的 FastAPI 地址 |
-| `VITE_MOCK_APP` | `true` | 是否使用 Workbench 演示接口 |
 | `SUPABASE_URL` | `http://localhost:18000` | Supabase API 地址 |
 | `SUPABASE_ANON_KEY` | 空 | 注册、登录和匿名客户端密钥 |
 | `SUPABASE_SERVICE_ROLE_KEY` | 空 | 后端管理密钥，仅服务端可见 |
@@ -243,20 +237,9 @@ npm install
 Set-Location ..
 ```
 
-### 2A. 只看演示页面
+### 2A. 自动化测试模式
 
-根 `.env` 保持：
-
-```dotenv
-VITE_MOCK_APP=true
-MOCK_EXTERNAL_APIS=true
-```
-
-随后直接执行：
-
-```powershell
-.\start-project.ps1
-```
+测试可设置 `MOCK_EXTERNAL_APIS=true` 获得确定性模型响应；前端仍需登录并始终调用 `/api/v1`。该模式不能作为真实模型验收证据。
 
 访问：
 
@@ -333,9 +316,9 @@ Set-Location ..
 
 ### 认证约定
 
-- 推荐业务前缀：`/api/v1`。
-- 除 `/health` 和 `/api/workbench/*` 外，业务接口都要求 `Authorization: Bearer <SUPABASE_ACCESS_TOKEN>`。
-- 为兼容旧客户端，同一业务路由目前也挂载在无 `/api/v1` 前缀的路径；新代码不要依赖旧路径。
+- 唯一业务前缀：`/api/v1`。
+- 除 `/health` 外，业务接口都要求 `Authorization: Bearer <SUPABASE_ACCESS_TOKEN>`。
+- 无前缀兼容业务路由和 `/api/workbench/*` 已移除。
 - Swagger 自动文档是接口模型的最终准确信息来源：<http://localhost:8000/docs>。
 
 ### 接口分组
@@ -350,12 +333,11 @@ Set-Location ..
 | 问答 | `POST /api/v1/chat/ask`、`GET /api/v1/chat/history/{subjectId}` | 带引用问答与历史 |
 | 教学助手 | `POST /api/v1/assistant/messages` | 意图路由、角色教学和工具编排 |
 | 学习产物 | `/api/v1/artifacts`、`.../outlines`、`.../mind-maps`、`.../flashcards` | 生成、编辑、复习和导出 |
-| 考试与错题 | `/api/v1/exams`、`/api/v1/exam-attempts`、`.../wrong-answers/...` | 组卷、作答、评分、错题与变式题 |
+| 考试与练习分析 | `/api/v1/exams/generations`、`/api/v1/exam-attempts` | 异步组卷、作答、评分与练习表现分析 |
 | 复习 | `/api/v1/review/...`、`/api/v1/study-plans/...` | 掌握度、趋势、今日任务和冲刺计划 |
 | 记忆 | `/api/v1/memories`、`/api/v1/memory-writes/...`、`/api/v1/memory-snapshots` | 核心记忆、审批和冻结快照 |
 | 学习画像 | `/api/v1/learner-profile`、`/api/v1/sessions/search`、`/api/v1/skills` | 画像、语义会话历史与技能管理 |
 | 隐私与运维 | `/api/v1/privacy/...`、`GET /api/v1/operations/metrics` | 导出、删除、账户清理和指标 |
-| 演示接口 | `/api/workbench/*` | 无认证的前端占位数据，不用于生产 |
 
 ### 输入与输出示例
 
@@ -516,7 +498,7 @@ Content-Type: application/json
 }
 ```
 
-提交到 `POST /api/v1/exams`。完整字段和响应结构请在 Swagger 中查看。
+提交到 `POST /api/v1/exams/generations`，再通过任务接口查询生成状态。完整字段和响应结构请在 Swagger 中查看。
 
 ## 测试与验收
 

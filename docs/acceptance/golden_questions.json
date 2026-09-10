@@ -1,0 +1,22 @@
+[
+  {"id":"strategy-chandler","question":"How does Chandler (1962) define strategy?","expectedPage":6,"acceptedPages":[6,33]},
+  {"id":"strategy-andrews","question":"How does Andrews (1971) describe strategy?","expectedPage":7},
+  {"id":"strategy-porter","question":"What is Michael Porter's definition of strategy?","expectedPage":8},
+  {"id":"strategy-johnson","question":"How do Johnson et al. (2020) define strategy?","expectedPage":9},
+  {"id":"emergent-amazon","question":"What is emergent strategy and how is Amazon an example?","expectedPage":10},
+  {"id":"planned-toyota","question":"Why is Toyota an example of planned strategy?","expectedPage":11},
+  {"id":"design-school","question":"What does the design school say about strategy formation?","expectedPage":12},
+  {"id":"planning-school","question":"How does the planning school form strategy?","expectedPage":13},
+  {"id":"positioning-school","question":"What is the positioning school's view of competitive success?","expectedPage":14},
+  {"id":"entrepreneurial-school","question":"How is strategy formed in the entrepreneurial school?","expectedPage":15},
+  {"id":"cognitive-school","question":"What does the cognitive school mean by strategy as a mental process?","expectedPage":16},
+  {"id":"learning-school","question":"How does strategy evolve according to the learning school?","expectedPage":17},
+  {"id":"power-school","question":"How do negotiation and power moves shape strategy?","expectedPage":18},
+  {"id":"culture-school","question":"How do collective vision and organizational culture shape strategy?","expectedPage":19},
+  {"id":"environmental-school","question":"How do external environmental forces shape strategy?","expectedPage":20},
+  {"id":"configuration-school","question":"Why is strategy a transformational process in the configurational school?","expectedPage":21},
+  {"id":"whittington-perspectives","question":"What are Whittington's four perspectives on strategy?","expectedPage":23},
+  {"id":"strategy-temporality","question":"What does temporality mean when defining strategy?","expectedPage":26},
+  {"id":"strategy-levels","question":"Why must strategy consider business or corporate level?","expectedPage":30},
+  {"id":"strategy-multifaceted","question":"Why is strategy not a one-size-fits-all concept?","expectedPage":32}
+]

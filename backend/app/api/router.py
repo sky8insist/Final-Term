@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api import artifacts, assistant, auth, chat, exam_attempts, exams, materials, memory, operations, outline, privacy, quiz, retrieval, review, study_plans, subjects, tasks, workspace
+from app.api import artifacts, assistant, auth, chat, exam_attempts, exams, materials, memory, operations, privacy, retrieval, review, study_plans, subjects, tasks, workspace
 
 
 def build_api_router() -> APIRouter:
@@ -11,8 +11,6 @@ def build_api_router() -> APIRouter:
     router.include_router(materials.router, prefix="/materials", tags=["materials"])
     router.include_router(retrieval.router, prefix="/retrieval", tags=["retrieval"])
     router.include_router(chat.router, prefix="/chat", tags=["chat"])
-    router.include_router(outline.router, prefix="/outline", tags=["outline"])
-    router.include_router(quiz.router, prefix="/quiz", tags=["quiz"])
     router.include_router(review.router, prefix="/review", tags=["review"])
     router.include_router(tasks.router, prefix="/tasks", tags=["tasks"])
     router.include_router(memory.router, tags=["memory"])

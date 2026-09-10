@@ -45,7 +45,6 @@ export default function App() {
         <Route path="study-room" element={<Workspace><AIStudyRoom/></Workspace>}/>
         <Route path="mind-map" element={<Workspace><MindMap/></Workspace>}/>
         <Route path="exams" element={<Workspace><Exams/></Workspace>}/>
-        <Route path="wrong-questions" element={<Navigate to="/exams" replace/>}/>
         <Route path="plan" element={<Workspace><Plan/></Workspace>}/>
       </Route>
     </Route>

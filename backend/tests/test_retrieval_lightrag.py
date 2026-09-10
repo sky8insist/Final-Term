@@ -174,7 +174,7 @@ def test_definition_questions_get_a_lexical_query_expansion(question, expected):
 
 def test_retrieval_search_requires_login():
     response = client.post(
-        "/retrieval/search",
+        "/api/v1/retrieval/search",
         json={"subjectId": SUBJECT_ID, "question": "What should I review?"},
     )
 
@@ -196,7 +196,7 @@ def test_retrieval_search_returns_citations(monkeypatch):
     )
 
     response = client.post(
-        "/retrieval/search",
+        "/api/v1/retrieval/search",
         json={"subjectId": SUBJECT_ID, "question": "What should I review?", "topK": 3},
     )
 
@@ -217,7 +217,7 @@ def test_retrieval_search_foreign_subject_returns_404(monkeypatch):
     monkeypatch.setattr(retrieval_service, "get_subject", raise_not_found)
 
     response = client.post(
-        "/retrieval/search",
+        "/api/v1/retrieval/search",
         json={"subjectId": SUBJECT_ID, "question": "What should I review?"},
     )
 

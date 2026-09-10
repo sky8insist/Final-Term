@@ -9,17 +9,6 @@ from app.services import study_plan_generation_service, study_plan_service, task
 router = APIRouter()
 
 
-@router.post("")
-def generate_plan(payload: StudyPlanRequest,
-                  current_user: CurrentUser = Depends(get_current_user)):
-    return study_plan_service.generate_plan(
-        user_id=current_user.id, subject_id=payload.subject_id,
-        exam_date=payload.exam_date, daily_minutes=payload.daily_minutes,
-        title=payload.title, weekend_extra=payload.weekend_extra,
-        reserve_final_day=payload.reserve_final_day, preserve_existing=payload.preserve_existing,
-    )
-
-
 @router.post("/preview")
 def preview_plan(payload: StudyPlanRequest,
                  current_user: CurrentUser = Depends(get_current_user)):

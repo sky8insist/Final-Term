@@ -369,8 +369,10 @@ async def handle_message(*, user_id: str, payload: AssistantMessageRequest) -> d
     memory_updates = []
     if settings.enable_hermes_memory and profile.get("memoryEnabled", True):
         from app.worker.tasks import review_learning_interaction
+        from app.services.observability_service import current_trace_metadata
         review_learning_interaction.delay(
             user_id, payload.subject_id, payload.session_id, question, answer["answer"], role_key,
+            current_trace_metadata(),
         )
         memory_updates.append({"status": "queued", "type": "background_review"})
     interaction = None

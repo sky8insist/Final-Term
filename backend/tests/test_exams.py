@@ -10,8 +10,8 @@ client = TestClient(app)
 
 def test_exam_routes_require_login():
     assert client.get("/api/v1/exams?subject_id=s").status_code == 401
-    assert client.post("/api/v1/exams/attempts", json={"examId": "exam"}).status_code == 401
-    assert client.post("/api/v1/exams/attempts/a/submit").status_code == 401
+    assert client.post("/api/v1/exam-attempts", json={"examId": "exam"}).status_code == 401
+    assert client.post("/api/v1/exam-attempts/a/submit").status_code == 401
     assert client.get("/api/v1/exam-attempts/history?subject_id=s").status_code == 401
     assert client.post("/api/v1/exam-attempts/a/questions/q/confirm", json={"response": "A"}).status_code == 401
     assert client.get("/api/v1/exams/e/export").status_code == 401

@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import type { ChatMessage, DashboardData, Exam, ExamAttempt, ExamAttemptSummary, ExamDetail, ExamGenerateInput, ExamQuestionType, Material, MindMapData, MindMapGenerateInput, MindMapNode, ProcessingTask, QuestionGradingResult, StudyPlanInput, StudyPlanOverview, StudyPlanPreview, StudyTask, Subject, TutorRole } from '../types';
+import type { ChatMessage, DashboardData, DialogueAct, Exam, ExamAttempt, ExamAttemptSummary, ExamDetail, ExamGenerateInput, ExamGeneration, ExamQuestionType, KnowledgePolicy, Material, MindMapData, MindMapGenerateInput, MindMapNode, ProcessingTask, QuestionGradingResult, StudyPlanInput, StudyPlanOverview, StudyPlanPreview, StudyTask, Subject, TutorRole } from '../types';
 
 const baseUrl = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000').replace(/\/$/, '');
 
@@ -27,7 +27,7 @@ type BackendExam = {
   question_types?: ExamQuestionType[]; questionTypes?: ExamQuestionType[];
   duration_minutes?: number; durationMinutes?: number; total_points?: number; totalPoints?: number;
   questions?: Array<Record<string, unknown>>;
-  generation?: import('../types').ExamGeneration | null;
+  generation?: ExamGeneration | null;
 };
 type BackendAttempt = {
   id: string; exam_id?: string; examId?: string; status: ExamAttempt['status'];
@@ -342,7 +342,7 @@ export const api = {
   tasks: (subjectId: string, activeOnly = false) => apiV1<ProcessingTask[]>(`/tasks?subject_id=${encodeURIComponent(subjectId)}&active_only=${activeOnly}`),
 
   chatHistory: (subjectId: string) => cached<ChatMessage[]>('chat', subjectId, () => apiV1(`/chat/history/${encodeURIComponent(subjectId)}`)),
-  chat: async (payload: { subject_id: string; content: string; session_id: string; role: TutorRole; interaction_id?: string | null; knowledge_policy?: import('../types').KnowledgePolicy; dialogue_act_override?: import('../types').DialogueAct }) => {
+  chat: async (payload: { subject_id: string; content: string; session_id: string; role: TutorRole; interaction_id?: string | null; knowledge_policy?: KnowledgePolicy; dialogue_act_override?: DialogueAct }) => {
     const result = await apiV1<{
       answer: string;
       citations?: ChatMessage['citations'];
@@ -392,16 +392,6 @@ export const api = {
   }, 120_000),
 
   exams: (subjectId: string) => cached<Exam[]>('exams', subjectId, async () => (await apiV1<BackendExam[]>(`/exams?subject_id=${encodeURIComponent(subjectId)}`)).map(examFromApi)),
-  createExam: async (payload: { subject_id: string; question_count: number; difficulty: string }) => examFromApi(await apiV1<BackendExam>('/exams', {
-    method: 'POST',
-    body: JSON.stringify({
-      subjectId: payload.subject_id,
-      title: '阶段练习',
-      durationMinutes: Math.max(20, payload.question_count * 2),
-      difficulty: payload.difficulty,
-      questionTypes: [{ questionType: 'single_choice', count: payload.question_count, pointsEach: 5 }],
-    }),
-  })),
   queueExamGeneration: (payload: ExamGenerateInput) => apiV1<ProcessingTask>('/exams/generations', {
     method: 'POST', body: JSON.stringify(payload),
   }),

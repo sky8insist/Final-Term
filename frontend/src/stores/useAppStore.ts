@@ -1,10 +1,9 @@
 import { create } from 'zustand';
 import type { Subject } from '../types';
 
-const SUBJECT_STORAGE_KEY = 'workbench-subject';
-const SUBJECT_OWNER_STORAGE_KEY = 'workbench-subject-owner';
+const SUBJECT_STORAGE_KEY = 'examai-subject';
+const SUBJECT_OWNER_STORAGE_KEY = 'examai-subject-owner';
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const usesMockSubjects = import.meta.env.VITE_MOCK_APP === 'true';
 
 function isSubject(value: unknown): value is Subject {
   if (!value || typeof value !== 'object') return false;
@@ -19,7 +18,7 @@ function readStoredSubject(): Subject | null {
     const raw = localStorage.getItem(SUBJECT_STORAGE_KEY);
     if (!raw) return null;
     const subject: unknown = JSON.parse(raw);
-    if (!isSubject(subject) || (!usesMockSubjects && !UUID_PATTERN.test(subject.id))) {
+    if (!isSubject(subject) || !UUID_PATTERN.test(subject.id)) {
       localStorage.removeItem(SUBJECT_STORAGE_KEY);
       return null;
     }
@@ -40,7 +39,7 @@ interface AppState {
 export const useAppStore = create<AppState>((set) => ({
   currentSubject: readStoredSubject(),
   setCurrentSubject: (subject) => {
-    if (subject && (usesMockSubjects || UUID_PATTERN.test(subject.id))) {
+    if (subject && UUID_PATTERN.test(subject.id)) {
       localStorage.setItem(SUBJECT_STORAGE_KEY, JSON.stringify(subject));
       set({ currentSubject: subject });
       return;

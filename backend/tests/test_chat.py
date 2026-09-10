@@ -28,7 +28,7 @@ def use_test_user() -> None:
 
 def test_chat_ask_requires_login():
     response = client.post(
-        "/chat/ask",
+        "/api/v1/chat/ask",
         json={"subjectId": SUBJECT_ID, "question": "What should I review?"},
     )
 
@@ -38,7 +38,7 @@ def test_chat_ask_requires_login():
 def test_chat_ask_rejects_empty_question():
     use_test_user()
     response = client.post(
-        "/chat/ask",
+        "/api/v1/chat/ask",
         json={"subjectId": SUBJECT_ID, "question": "   "},
     )
 
@@ -69,7 +69,7 @@ def test_chat_ask_returns_answer_and_citations(monkeypatch):
     monkeypatch.setattr(rag_service, "answer_with_rag", fake_answer_with_rag)
 
     response = client.post(
-        "/chat/ask",
+        "/api/v1/chat/ask",
         json={"subjectId": SUBJECT_ID, "question": "What should I review?", "mode": "exam"},
     )
 

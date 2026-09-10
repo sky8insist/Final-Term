@@ -307,7 +307,7 @@ def parse_document_blocks(
             confidence=result.get("confidence", 0.0), metadata={"needsReview": result.get("confidence", 0.0) < 0.6},
         ))
     elif content_type in AUDIO_CONTENT_TYPES or suffix in {".mp3", ".wav", ".m4a"}:
-        from app.services.multimodal_service import analyze_transcript, transcribe_audio
+        from app.services.multimodal_service import transcribe_audio
         if content_type in {"audio/wav", "audio/x-wav"} or suffix == ".wav":
             try:
                 import wave
@@ -497,8 +497,3 @@ def build_audio_blocks(
         }
         blocks.append(block)
     return blocks
-
-
-def parse_document(path: str | Path) -> str:
-    file_path = Path(path)
-    return parse_document_bytes(file_path.read_bytes(), filename=file_path.name)

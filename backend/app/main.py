@@ -9,11 +9,15 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.encoders import jsonable_encoder
 
 from app.api.router import build_api_router
+from app.api import runs
 from app.config.settings import settings
 from app.utils.errors import AppError
 from app.utils.response import error
-from app.services.observability_service import request_id_context
-from app.api.workbench import router as workbench_router
+from app.services.observability_service import (
+    acceptance_run_id_context,
+    request_id_context,
+    trace_id_context,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -31,10 +35,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(build_api_router())
-app.include_router(workbench_router)
-if settings.enable_api_v1:
-    app.include_router(build_api_router(), prefix="/api/v1")
+app.include_router(build_api_router(), prefix="/api/v1")
+app.include_router(runs.router, prefix="/api/v3", tags=["dayend-v3"])
 
 
 def _request_id(request: Request) -> str:
@@ -44,14 +46,26 @@ def _request_id(request: Request) -> str:
 @app.middleware("http")
 async def attach_request_id(request: Request, call_next):
     request_id = request.headers.get(settings.request_id_header) or str(uuid4())
+    trace_id = request.headers.get(settings.trace_id_header) or request_id
+    acceptance_run_id = request.headers.get(settings.acceptance_run_id_header)
     request.state.request_id = request_id
-    token = request_id_context.set(request_id)
+    request.state.trace_id = trace_id
+    request.state.acceptance_run_id = acceptance_run_id
+    tokens = (
+        (request_id_context, request_id_context.set(request_id)),
+        (trace_id_context, trace_id_context.set(trace_id)),
+        (acceptance_run_id_context, acceptance_run_id_context.set(acceptance_run_id)),
+    )
     started_at = perf_counter()
     try:
         response = await call_next(request)
     finally:
-        request_id_context.reset(token)
+        for context, token in reversed(tokens):
+            context.reset(token)
     response.headers[settings.request_id_header] = request_id
+    response.headers[settings.trace_id_header] = trace_id
+    if acceptance_run_id:
+        response.headers[settings.acceptance_run_id_header] = acceptance_run_id
     response.headers["Server-Timing"] = f"app;dur={(perf_counter() - started_at) * 1000:.1f}"
     return response
 

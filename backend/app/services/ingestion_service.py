@@ -7,6 +7,7 @@ from app.config.settings import settings
 from app.db.supabase_client import get_supabase_client
 from app.services import material_service, task_service
 from app.services.file_service import normalized_upload_content_type, validate_upload_file
+from app.services.observability_service import current_trace_metadata
 from app.services.subject_service import get_subject
 
 
@@ -76,6 +77,7 @@ def queue_upload(*, user_id: str, subject_id: str, file: UploadFile) -> dict:
         task = task_service.create_task(
             user_id=user_id, subject_id=subject_id, material_id=material["id"],
             idempotency_key=f"material:{material['id']}:{digest}",
+            metadata=current_trace_metadata(),
         )
     except Exception as exc:
         material_service._update_material_status(

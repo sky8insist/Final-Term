@@ -9,7 +9,10 @@ from app.services.material_service import ProcessingCancelled
 from app.worker.celery_app import celery_app
 from app.services.llm_service import generate_json_async
 from app.services.embedding_service import EmbeddingError, embed_texts
-from app.services.observability_service import user_id_context
+from app.services.observability_service import (
+    StageTimer,
+    restore_trace_metadata,
+)
 import asyncio
 from time import perf_counter
 from fastapi import HTTPException
@@ -26,7 +29,10 @@ def process_material(self, task_id: str):
         return None
     row = rows.data[0]
     user_id, subject_id, material_id = row["user_id"], row["subject_id"], row["material_id"]
-    user_id_context.set(user_id)
+    task_metadata = dict(row.get("metadata") or {})
+    restore_trace_metadata(task_metadata, user_id=user_id)
+    stage_timer = StageTimer("material_processing_stage", task_id=task_id, material_id=material_id)
+    stage_timer.transition("parsing")
     attempts = int(row.get("attempts", 0)) + 1
     task_service.update_task(
         user_id=user_id, task_id=task_id, status="running", stage="parsing",
@@ -38,9 +44,9 @@ def process_material(self, task_id: str):
         raise RuntimeError("Material source is unavailable")
     material, asset = material_rows.data[0], asset_rows.data[0]
     data = client.storage.from_(asset["bucket"]).download(asset["object_path"])
-    task_metadata = dict(row.get("metadata") or {})
     try:
         def report(stage: str, progress: int):
+            stage_timer.transition(stage)
             current = task_service.get_task(user_id=user_id, task_id=task_id)
             if current["status"] == "cancelled":
                 raise ProcessingCancelled("Processing cancelled by user")
@@ -86,13 +92,15 @@ def process_material(self, task_id: str):
             raise RuntimeError(result.get("errorMessage") or "Material processing failed")
         task_service.update_task(
             user_id=user_id, task_id=task_id, status="succeeded", stage="ready",
-            progress=100, finished_at=datetime.now(UTC).isoformat(),
+            progress=100, error_code=None, error_message=None,
+            finished_at=datetime.now(UTC).isoformat(),
         )
         from app.services.observability_service import record_operation
         record_operation(
             operation="material_processing", status="succeeded", started_at=operation_started_at,
             task_id=task_id, material_id=material_id, stage="ready",
         )
+        stage_timer.finish()
         return result
     except ProcessingCancelled:
         # DELETE /tasks/{id} is authoritative. Never overwrite cancellation
@@ -100,6 +108,7 @@ def process_material(self, task_id: str):
         from app.services.observability_service import record_operation
         record_operation(operation="material_processing", status="cancelled", started_at=operation_started_at,
                          task_id=task_id, material_id=material_id, stage="cancelled")
+        stage_timer.finish("cancelled")
         return {"status": "cancelled", "taskId": task_id}
     except Exception as exc:
         max_attempts = int(row.get("max_attempts", settings.task_max_retries))
@@ -113,6 +122,7 @@ def process_material(self, task_id: str):
             record_operation(operation="material_processing", status="failed", started_at=operation_started_at,
                              task_id=task_id, material_id=material_id, stage="failed",
                              metadata={"attempts": attempts, "errorType": type(exc).__name__})
+            stage_timer.finish("failed", metadata={"errorType": type(exc).__name__})
             return {"status": "failed", "taskId": task_id, "attempts": attempts}
         task_service.update_task(
             user_id=user_id, task_id=task_id, status="queued", stage="queued",
@@ -135,8 +145,10 @@ def generate_exam(task_id: str):
     if not rows or rows[0]["status"] not in {"queued", "running"}:
         return None
     row = rows[0]
-    user_id_context.set(row["user_id"])
     metadata = dict(row.get("metadata") or {})
+    restore_trace_metadata(metadata, user_id=row["user_id"])
+    stage_timer = StageTimer("exam_generation_stage", task_id=task_id)
+    stage_timer.transition("retrieving")
     task_service.update_task(
         user_id=row["user_id"], task_id=task_id, status="running", stage="parsing",
         progress=5, attempts=int(row.get("attempts", 0)) + 1,
@@ -151,6 +163,7 @@ def generate_exam(task_id: str):
     }
 
     def report(stage_name: str, details: dict | None = None):
+        stage_timer.transition(stage_name, metadata=details)
         current = task_service.get_task(user_id=row["user_id"], task_id=task_id)
         if current["status"] == "cancelled":
             raise ProcessingCancelled("Exam generation cancelled by user")
@@ -198,8 +211,10 @@ def generate_exam(task_id: str):
             operation="exam_generation", status="succeeded", started_at=operation_started_at,
             task_id=task_id, stage="ready", metadata={"examId": exam["id"]},
         )
+        stage_timer.finish()
         return {"status": "succeeded", "taskId": task_id, "examId": exam["id"]}
     except ProcessingCancelled:
+        stage_timer.finish("cancelled")
         return {"status": "cancelled", "taskId": task_id}
     except Exception as exc:
         detail = exc.detail if isinstance(exc, HTTPException) else str(exc)
@@ -222,17 +237,22 @@ def generate_exam(task_id: str):
             operation="exam_generation", status="failed", started_at=operation_started_at,
             task_id=task_id, stage="failed", metadata={"errorType": type(exc).__name__},
         )
+        stage_timer.finish("failed", metadata={"errorType": type(exc).__name__})
         return {"status": "failed", "taskId": task_id, "errorCode": error_code}
 
 
 @celery_app.task
 def generate_study_plan(task_id: str):
+    operation_started_at = perf_counter()
     client = get_supabase_client()
     rows = client.table("processing_tasks").select("*").eq("id", task_id).limit(1).execute().data
     if not rows or rows[0]["status"] not in {"queued", "running"}:
         return None
     row = rows[0]
     metadata = dict(row.get("metadata") or {})
+    restore_trace_metadata(metadata, user_id=row["user_id"])
+    stage_timer = StageTimer("study_plan_generation_stage", task_id=task_id)
+    stage_timer.transition("signals_and_scheduling")
     task_service.update_task(
         user_id=row["user_id"], task_id=task_id, status="running", stage="parsing",
         progress=15, attempts=int(row.get("attempts", 0)) + 1,
@@ -249,6 +269,7 @@ def generate_study_plan(task_id: str):
             weekend_extra=payload.weekend_extra, reserve_final_day=payload.reserve_final_day,
             preserve_existing=payload.preserve_existing,
         )
+        stage_timer.transition("model_guidance")
         task_service.update_task(user_id=row["user_id"], task_id=task_id, status="running", stage="indexing", progress=82)
         result["tasks"] = asyncio.run(study_plan_service.enrich_task_guidance(
             user_id=row["user_id"], plan=result["plan"], tasks=result["tasks"],
@@ -258,6 +279,13 @@ def generate_study_plan(task_id: str):
             user_id=row["user_id"], task_id=task_id, status="succeeded", stage="ready",
             progress=100, metadata=metadata, finished_at=datetime.now(UTC).isoformat(),
         )
+        from app.services.observability_service import record_operation
+        record_operation(
+            operation="study_plan_generation", status="succeeded",
+            started_at=operation_started_at, task_id=task_id, stage="ready",
+            metadata={"planId": result["plan"]["id"], "taskCount": len(result["tasks"])},
+        )
+        stage_timer.finish()
         return {"status": "succeeded", "taskId": task_id, "planId": result["plan"]["id"]}
     except Exception as exc:
         metadata["currentStage"] = "failed"
@@ -266,13 +294,21 @@ def generate_study_plan(task_id: str):
             metadata=metadata, error_code="study_plan_generation_failed", error_message=str(exc)[:2000],
             finished_at=datetime.now(UTC).isoformat(),
         )
+        from app.services.observability_service import record_operation
+        record_operation(
+            operation="study_plan_generation", status="failed",
+            started_at=operation_started_at, task_id=task_id, stage="failed",
+            metadata={"errorType": type(exc).__name__},
+        )
+        stage_timer.finish("failed", metadata={"errorType": type(exc).__name__})
         return {"status": "failed", "taskId": task_id}
 
 
 @celery_app.task
 def review_learning_interaction(user_id: str, subject_id: str, session_id: str,
-                                question: str, answer: str, role: str):
-    user_id_context.set(user_id)
+                                question: str, answer: str, role: str,
+                                trace_metadata: dict | None = None):
+    restore_trace_metadata(trace_metadata, user_id=user_id)
     prompt = f"""复盘一次学习互动，只提取跨会话仍有价值的稳定信息。不要保存聊天原文、知识常识或一次性细节。
 返回 JSON：{{"eventType":"qa","memoryCandidates":[{{"kind":"explicit_preference|correction|weak_point|error_pattern|effective_strategy","target":"assistant_memory|user_profile","content":"简短可执行记忆","confidence":0.0,"importance":50,"reason":""}}],"skillCandidates":[{{"name":"稳定方法名","description":"何时有效","instructions":"可复用步骤","confidence":0.0}}],"summary":"会话摘要"}}
 角色：{role}\n问题：{question}\n回答：{answer}"""

@@ -12,7 +12,7 @@ from app.services.content_service import insert_content_blocks
 from app.services.embedding_service import EmbeddingError, embed_texts
 from app.services.file_service import validate_upload_file
 from app.services.lightrag_service import LightRAGServiceError, build_workspace, delete_material_index, index_material
-from app.services.parse_service import DocumentParseError, parse_document_blocks
+from app.services.parse_service import DocumentParseError
 from app.services.mineru_parser import parse_material
 from app.services.subject_service import get_subject
 from app.services.security_service import scan_untrusted_text

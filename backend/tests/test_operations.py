@@ -7,9 +7,20 @@ client = TestClient(app)
 
 
 def test_every_response_has_request_and_server_timing():
-    response = client.get("/health", headers={"X-Request-ID": "ops-test"})
+    response = client.get("/health", headers={
+        "X-Request-ID": "ops-test",
+        "X-Trace-ID": "trace-test",
+        "X-Acceptance-Run-ID": "acceptance-test",
+    })
     assert response.headers["X-Request-ID"] == "ops-test"
+    assert response.headers["X-Trace-ID"] == "trace-test"
+    assert response.headers["X-Acceptance-Run-ID"] == "acceptance-test"
     assert response.headers["Server-Timing"].startswith("app;dur=")
+
+
+def test_trace_defaults_to_request_id():
+    response = client.get("/health", headers={"X-Request-ID": "ops-default-trace"})
+    assert response.headers["X-Trace-ID"] == "ops-default-trace"
 
 
 def test_uploaded_prompt_injection_is_detected():
