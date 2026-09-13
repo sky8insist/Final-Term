@@ -183,6 +183,19 @@ def test_retrieval_search_requires_login():
 
 def test_retrieval_search_returns_citations(monkeypatch):
     use_test_user()
+
+    class OfflineClient:
+        def rpc(self, *_args, **_kwargs):
+            raise RuntimeError("keyword search is not part of this unit test")
+
+    def no_embeddings(*_args, **_kwargs):
+        raise retrieval_service.EmbeddingError("vector search is not part of this unit test")
+
+    # This test exercises the LightRAG citation path.  It must not depend on
+    # developer-only Supabase credentials that are deliberately absent in CI.
+    monkeypatch.setattr(retrieval_service, "get_supabase_client", lambda: OfflineClient())
+    monkeypatch.setattr(retrieval_service, "embed_texts", no_embeddings)
+    monkeypatch.setattr(retrieval_service, "_expand_page_context", lambda **_kwargs: None)
     monkeypatch.setattr(retrieval_service, "get_subject", lambda **_: {})
     monkeypatch.setattr(retrieval_service, "_get_subject_embedding_dimension", lambda **_: 2)
     monkeypatch.setattr(retrieval_service, "_subject_has_lightrag_index", lambda **_: True)
