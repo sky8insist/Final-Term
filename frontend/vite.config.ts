@@ -19,5 +19,20 @@ export default defineConfig(() => {
       // Keep HMR and file watching controlled by the same switch.
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
     },
+    build: {
+      rollupOptions: {
+        output: {
+          // Keep route code splitting effective by preventing rarely visited
+          // graph and markdown dependencies from being merged into the main
+          // application/vendor chunk.
+          manualChunks: {
+            'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+            'vendor-flow': ['@xyflow/react'],
+            'vendor-markdown': ['react-markdown', 'remark-gfm'],
+            'vendor-supabase': ['@supabase/supabase-js'],
+          },
+        },
+      },
+    },
   };
 });

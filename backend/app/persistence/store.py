@@ -6,6 +6,10 @@ from pathlib import Path
 from app.config.settings import settings
 
 
+def _postgres_enabled() -> bool:
+    return settings.dayend_persistence_backend == "postgres"
+
+
 def _path() -> Path:
     path = Path(settings.dayend_store_path)
     return path if path.is_absolute() else Path.cwd().parent / path
@@ -38,6 +42,21 @@ def persist_validated_state(state: dict) -> None:
 
     now = datetime.now(timezone.utc).isoformat()
     serialized = encode(state)
+    if _postgres_enabled():
+        if not settings.database_url:
+            raise RuntimeError("DAYEND_PERSISTENCE_BACKEND=postgres requires DATABASE_URL")
+        import psycopg
+        with psycopg.connect(settings.database_url) as connection, connection.cursor() as cursor:
+            cursor.execute("""insert into dayend_runs (run_id, thread_id, user_id, status, state_json, created_at)
+                values (%s, %s, %s, %s, %s::jsonb, %s)
+                on conflict (run_id) do update set state_json=excluded.state_json, created_at=excluded.created_at""",
+                (state["run_id"], state["thread_id"], state.get("user_id"), "completed", serialized, now))
+            cursor.execute("""insert into dayend_night_states (thread_id, user_id, closure_json, planning_json, emotion_json, confirmation_json, updated_at)
+                values (%s, %s, %s::jsonb, %s::jsonb, %s::jsonb, %s::jsonb, %s)
+                on conflict (thread_id) do update set closure_json=excluded.closure_json, planning_json=excluded.planning_json,
+                    emotion_json=excluded.emotion_json, confirmation_json=excluded.confirmation_json, updated_at=excluded.updated_at""",
+                (state["thread_id"], state.get("user_id"), encode(data("closure_result")), encode(data("planning_result")), encode(data("emotion_result")), encode(state.get("human_response")), now))
+        return
     with _connection() as connection:
         connection.execute("INSERT OR REPLACE INTO dayend_runs VALUES (?, ?, ?, ?, ?, ?)", (
             state["run_id"], state["thread_id"], state.get("user_id"), "completed", serialized, now,
@@ -49,6 +68,17 @@ def persist_validated_state(state: dict) -> None:
 
 
 def get_night_state(thread_id: str) -> dict | None:
+    if _postgres_enabled():
+        if not settings.database_url:
+            raise RuntimeError("DAYEND_PERSISTENCE_BACKEND=postgres requires DATABASE_URL")
+        import psycopg
+        from psycopg.rows import dict_row
+        with psycopg.connect(settings.database_url, row_factory=dict_row) as connection, connection.cursor() as cursor:
+            cursor.execute("select closure_json, planning_json, emotion_json, confirmation_json from dayend_night_states where thread_id = %s", (thread_id,))
+            row = cursor.fetchone()
+        if not row:
+            return None
+        return {"closure": row["closure_json"], "planning": row["planning_json"], "emotion": row["emotion_json"], "confirmation": row["confirmation_json"]}
     with _connection() as connection:
         row = connection.execute("SELECT closure_json, planning_json, emotion_json, confirmation_json FROM dayend_night_states WHERE thread_id = ?", (thread_id,)).fetchone()
     if not row:

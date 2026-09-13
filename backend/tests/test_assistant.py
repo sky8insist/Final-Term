@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 
 from app.agents import router_agent
 from app.main import app
-from app.models.assistant import AssistantMessageRequest, IntentDecision
+from app.models.assistant import AssistantMessageRequest, DialogueDecision, IntentDecision
 from app.services import assistant_service
 from app.services.llm_service import LLMServiceError
 from app.services.role_service import recommend_role
@@ -64,6 +64,10 @@ def test_low_confidence_intent_returns_clarification(monkeypatch):
             required_skills=[],
         )
     monkeypatch.setattr(assistant_service, "route_intent", uncertain)
+    monkeypatch.setattr(assistant_service, "resolve_conversation_context", lambda **_: {"activeInteraction": None, "hasPendingQuestion": False, "recentTurns": []})
+    async def dialogue(**_):
+        return DialogueDecision(dialogue_act="new_question", confidence=0.9, should_retrieve=True, reason_code="test")
+    monkeypatch.setattr(assistant_service, "classify_dialogue_act", dialogue)
     monkeypatch.setattr(assistant_service.hermes_memory_service, "get_profile", lambda **_: {"level": "beginner"})
     monkeypatch.setattr(assistant_service.memory_service, "record_qa_history", lambda **_: {"id": "msg-1"})
     payload = AssistantMessageRequest(
@@ -98,6 +102,10 @@ def test_assistant_forwards_session_role_generation_and_queues_memory(monkeypatc
         }
 
     monkeypatch.setattr(assistant_service, "route_intent", route)
+    monkeypatch.setattr(assistant_service, "resolve_conversation_context", lambda **_: {"activeInteraction": None, "hasPendingQuestion": False, "recentTurns": []})
+    async def dialogue(**_):
+        return DialogueDecision(dialogue_act="new_question", confidence=0.9, should_retrieve=True, reason_code="test")
+    monkeypatch.setattr(assistant_service, "classify_dialogue_act", dialogue)
     monkeypatch.setattr(assistant_service.hermes_memory_service, "get_profile", lambda **_: {"memoryEnabled": True})
     monkeypatch.setattr(assistant_service.hermes_memory_service, "list_active_skills", lambda **_: [])
     monkeypatch.setattr(assistant_service.rag_service, "answer_with_rag", answer)

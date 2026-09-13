@@ -1,5 +1,63 @@
 # 项目交接文档
 
+## 2026-09-13 — Dayend V3 本地持久化验收与质量评估豁免（最新）
+
+> 当前全项目验收索引：`docs/acceptance/CURRENT_PROJECT_ACCEPTANCE_20260913.md`。
+> 结论为“有条件通过（本地技术交付）”，不是生产级最终验收。
+
+### 本轮已完成
+
+- Closure 合同新增约束：模型分类为 `uncertain` 的事项必须引用有效
+  `needs_confirmation_ids`；新增 `test_closure_contract.py`，完整后端回归为
+  `205 passed, 3 warnings`。
+- `/api/v3/runs/stream` 在 `confirmation_required` 后不再错误发出
+  `run_completed`；所有者隔离已真实验证：owner `GET` 为 200，另一账户
+  `GET`/`resume` 均为 404。
+- A/B/C 盲评流程已补齐私有 answer key：评审包只含 `review_id`，协调者通过
+  `merge_dayend_blind_scores.py` 在评分回收后再映射 `case_id`/`variant`。
+  评分工具回归 `4 passed`；评审包位于 `.run/dayend-blind-review/`，私钥位于
+  `.run/dayend-blind-review-keys/`，后者绝不可发给评审者。
+- PostgreSQL 持久化代码准备已完成：新增 `langgraph-checkpoint-postgres`，
+  `DAYEND_PERSISTENCE_BACKEND=postgres` 时 checkpoint 使用
+  `AsyncPostgresSaver`，业务投影使用 JSONB upsert；新增迁移
+  `backend/migrations/028_dayend_business_persistence.sql`。SQLite 兼容路径
+  回归 `5 passed`。
+- 本地 Supabase PostgreSQL 已恢复后，`028` 已核验存在 `dayend_runs`、
+  `dayend_night_states` 及 `dayend_runs_user_created_idx`。Windows 下发现
+  `psycopg` 与 Proactor event loop 不兼容，已新增 PostgreSQL 模式专用的
+  Selector 启动兼容层。两次独立进程已验证 checkpoint 中断后 resume 与 JSONB
+  业务投影读取，测试记录已清理；新的无 reload 后端启动器健康检查通过。
+
+### 未完成 / 不得误报
+
+- VS Code Codex 当前没有可用 Browser 控制面板；Dayend Activity Drawer 的真实
+  浏览器确认/resume 验收仍未执行，不得标记为通过。
+- 用户确认无法取得两位独立评审的 JSONL；本交付将 A/B/C 质量指标与货币成本
+  正式记为 `N/A（质量复核未完成）`。评审包和私有 answer key 继续保留，以便未来
+  独立复核；不得用自动评分、协调者评分或推断结果替代。
+- PostgreSQL 已在本地 Supabase 环境通过迁移对象、进程重启恢复与启动器验证；
+  这仅代表本地验收，尚未构成部署到生产环境的声明。
+- Windows `uvicorn --reload` 在该环境可能陷入命名管道 `WinError 5` 循环。
+  验收时使用无 reload 的单进程后端，并确保它继承
+  `NO_PROXY=localhost,127.0.0.1`，否则本地 Supabase 认证会错误走系统代理。
+
+### 当前交付结论与后续顺序
+
+- Dayend V3 后端技术验收为**有限通过**：真实运行批次、权限、SSE 语义、SQLite /
+  PostgreSQL 持久化恢复及专项回归已有证据。
+- A/B/C 人工质量结论为 **N/A（豁免，待未来独立复核）**，不构成质量优于基线或
+  最终完整验收通过的证据。
+- Activity Drawer 的真实浏览器 HITL 验收仍为未完成。
+- 前端生产构建已完成 vendor 分包；最大 chunk 由 517.26 kB 降至 246.83 kB，
+  不再出现 >500 kB 构建警告。
+- 真实完整 E2E `acceptance-20260913T205814-live` 完成为 43/46：认证、真实 PDF
+  处理、隔离、Chat、Artifacts（含思维导图）、考试/评分、计划及隐私流程通过；
+  Chandler/Andrews/Johnson 检索检查仍未达标，Golden Recall@5 为 18/20。
+
+1. 在支持 Browser 的 Codex 客户端完成真实 Activity Drawer 与 HITL UI 验收。
+2. 如未来取得两位独立评分 JSONL，再用私有 answer key 合并、校验并补发 A/B/C
+   质量报告；此前不得修改 `N/A` 结论。
+
 ## 2026-09-10 — Dayend V3 真实验收与工作区整理续作（最新）
 
 ### 已完成并提交

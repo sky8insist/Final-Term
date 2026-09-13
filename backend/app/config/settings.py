@@ -123,6 +123,9 @@ class Settings(BaseSettings):
         default="backend/data/dayend/business.sqlite",
         validation_alias="DAYEND_STORE_PATH",
     )
+    dayend_persistence_backend: str = Field(
+        default="sqlite", validation_alias="DAYEND_PERSISTENCE_BACKEND",
+    )
     dayend_model: str | None = Field(default=None, validation_alias="DAYEND_LLM_MODEL")
     # All Dayend agents use the existing SiliconFlow OpenAI-compatible API.
     # These overrides permit quality/cost routing without introducing another provider.

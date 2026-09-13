@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
-import { BookOpen, Calendar, ChevronLeft, FileText, Info, LayoutDashboard, LogOut, Menu, MessageSquare, Network, PenTool } from 'lucide-react';
+import { BookOpen, Calendar, ChevronLeft, FileText, Info, LayoutDashboard, LogOut, Menu, MessageSquare, Moon, Network, PenTool } from 'lucide-react';
 import { useAppStore } from '../stores/useAppStore';
 import { cn } from '../utils/cn';
 import { useAuth } from '../auth/AuthProvider';
 import { api } from '../api/client';
+import { DayendActivityDrawer } from '../components/DayendActivityDrawer';
 
 const links = [
   { path: '/', label: '仪表盘', icon: LayoutDashboard, global: true },
@@ -19,6 +20,7 @@ export function MainLayout() {
   const { currentSubject, isSidebarOpen, toggleSidebar } = useAppStore();
   const { user, signOut } = useAuth();
   const [cachedAt, setCachedAt] = useState<string | null>(null);
+  const [dayendOpen, setDayendOpen] = useState(false);
   const email = user?.email || '已认证账户';
   const avatar = email.slice(0, 1).toUpperCase();
   useEffect(() => {
@@ -51,6 +53,7 @@ export function MainLayout() {
         {links.filter((link) => link.global || currentSubject).map(({ path, label, icon: Icon }) => <NavLink key={path} to={path} end={path === '/'} className={({ isActive }) => cn('flex items-center rounded-lg px-3 py-2.5 text-sm transition-colors', isActive ? 'bg-blue-50 font-semibold text-blue-700' : 'text-blue-950 hover:bg-slate-100')}><Icon size={19} className={cn('shrink-0', isSidebarOpen && 'mr-3')}/>{isSidebarOpen && label}</NavLink>)}
       </nav>
       <div className="border-t border-slate-100 p-3">
+        <button type="button" onClick={() => setDayendOpen(true)} className="mb-2 flex min-h-10 w-full items-center rounded-lg px-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"><Moon size={18} className={cn('shrink-0', isSidebarOpen && 'mr-3')}/>{isSidebarOpen && '夜间整理'}</button>
         <div className="flex items-center gap-2">
           <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-blue-100 font-bold text-blue-700">{avatar}</div>
           {isSidebarOpen && <div className="min-w-0 flex-1"><div className="text-sm font-medium">学习者</div><div className="truncate text-xs text-slate-400" title={email}>{email}</div></div>}
@@ -62,5 +65,6 @@ export function MainLayout() {
       {cachedAt && <div className="flex items-center gap-2 bg-amber-100 px-4 py-2 text-sm text-amber-950" role="status"><Info size={16}/><span>当前展示最近一次成功保存的内容（{new Date(cachedAt).toLocaleString('zh-CN')}），恢复连接后将自动更新。</span></div>}
       <div className="min-h-0 flex-1 overflow-hidden"><Outlet/></div>
     </main>
+    <DayendActivityDrawer open={dayendOpen} onClose={() => setDayendOpen(false)}/>
   </div>;
 }

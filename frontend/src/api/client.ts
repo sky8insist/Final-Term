@@ -118,6 +118,46 @@ async function apiV1<T>(path: string, init?: RequestInit, timeoutMs?: number): P
   return response.json() as Promise<T>;
 }
 
+export type DayendActivity = {
+  event: 'run_started' | 'agent_started' | 'agent_completed' | 'graph_updated' | 'confirmation_required' | 'run_failed' | 'run_completed';
+  data: Record<string, unknown>;
+};
+
+async function apiV3<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = await sessionToken();
+  const response = await fetch(`${baseUrl}/api/v3${path}`, {
+    ...init,
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', ...init?.headers },
+  });
+  if (!response.ok) throw new ApiError((await response.json().catch(() => null))?.detail || `请求失败（${response.status}）`, response.status);
+  return response.json() as Promise<T>;
+}
+
+async function streamDayendRun(payload: { userInput: string; entryPoint?: string; threadId?: string }, onEvent: (event: DayendActivity) => void) {
+  const token = await sessionToken();
+  const response = await fetch(`${baseUrl}/api/v3/runs/stream`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Accept: 'text/event-stream' },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok || !response.body) throw new ApiError((await response.json().catch(() => null))?.detail || '无法启动夜间流程。', response.status);
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  while (true) {
+    const next = await reader.read();
+    if (next.done) break;
+    buffer += decoder.decode(next.value, { stream: true });
+    const blocks = buffer.split('\n\n');
+    buffer = blocks.pop() || '';
+    for (const block of blocks) {
+      const event = block.match(/^event: (.+)$/m)?.[1];
+      const data = block.match(/^data: (.+)$/m)?.[1];
+      if (event && data) onEvent({ event: event as DayendActivity['event'], data: JSON.parse(data) });
+    }
+  }
+}
+
 async function saveCache<T>(resource: string, data: T, subjectId?: string) {
   try {
     await apiV1(`/workspace/cache/${resource}`, {
@@ -420,6 +460,10 @@ export const api = {
   generatePlan: (input: StudyPlanInput) => apiV1<ProcessingTask>('/study-plans/generations', { method: 'POST', body: JSON.stringify(input) }),
   planGeneration: (id: string) => apiV1<ProcessingTask>(`/study-plans/generations/${encodeURIComponent(id)}`),
   updateTask: async (taskId: string, completed: boolean) => taskFromApi(await apiV1<BackendTask>(`/study-plans/tasks/${encodeURIComponent(taskId)}`, { method: 'PATCH', body: JSON.stringify({ status: completed ? 'completed' : 'pending' }) })),
+
+  streamDayendRun,
+  dayendRun: (threadId: string) => apiV3<{ threadId: string; status: string; state?: Record<string, unknown>; next?: string[] }>(`/runs/${encodeURIComponent(threadId)}`),
+  resumeDayendRun: (threadId: string, response: Record<string, unknown>) => apiV3<{ threadId: string; state: Record<string, unknown> }>(`/runs/${encodeURIComponent(threadId)}/resume`, { method: 'POST', body: JSON.stringify({ response }) }),
 
   saveWorkspaceState: (data: unknown) => saveCache('workspace', data),
 };

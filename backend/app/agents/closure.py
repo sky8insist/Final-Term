@@ -5,8 +5,9 @@ from app.state.dayend_state import DayendState
 
 PROMPT = """You are the Closure Agent. Extract only explicitly grounded end-of-day items.
 Classify each as completed, unfinished, waiting, or uncertain. Every item needs verbatim
-or close evidence from the user's input. Do not create tomorrow actions, priorities, advice,
-or unexpressed tasks. Return the ClosureOutput schema."""
+or close evidence from the user's input. Every uncertain item MUST have its id in
+needs_confirmation_ids; do not add ids for items that are not in items. Do not create
+tomorrow actions, priorities, advice, or unexpressed tasks. Return the ClosureOutput schema."""
 
 
 async def closure_node(state: DayendState) -> dict:

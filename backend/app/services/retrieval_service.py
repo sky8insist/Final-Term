@@ -245,7 +245,11 @@ def search_subject_context(
                 "target_material_ids": material_ids,
                 "target_block_types": block_types,
                 "min_confidence": min_confidence,
-                "result_limit": normalized_top_k * 2,
+                # Retrieve a broader lexical candidate set before fusion. This
+                # matters for author-definition queries, where the definitive
+                # page can otherwise be just below an early generic strategy
+                # match.
+                "result_limit": normalized_top_k * 8,
             }).execute()
             return rpc.data or []
         except Exception:
@@ -309,6 +313,16 @@ def search_subject_context(
             "confidence": metadata.get("confidence"),
             "score": float(row["score"]) if row.get("score") is not None else None,
         }, "vector", rank)
+
+    # A one-token definition query is an extracted author name (for example,
+    # "How does Chandler define strategy?").  Prefer source blocks that name
+    # that author, while retaining all fused candidates and their evidence.
+    author_hint = definition_query or ""
+    if re.fullmatch(r"[A-Za-z][A-Za-z'-]*", author_hint):
+        author_hint = author_hint.casefold()
+        for item in citations:
+            if author_hint in str(item.get("chunkText") or "").casefold():
+                item["rrfScore"] += 0.1
     record_operation(
         operation="retrieval", stage="vector", status="succeeded",
         started_at=stage_started,

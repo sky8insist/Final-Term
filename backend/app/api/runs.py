@@ -17,13 +17,13 @@ async def create_dayend_run(payload: DayendRunRequest, current_user: CurrentUser
 
 
 @router.get("/runs/{thread_id}")
-async def get_dayend_run(thread_id: str, _: CurrentUser = Depends(get_current_user)):
-    return await get_run(thread_id=thread_id)
+async def get_dayend_run(thread_id: str, current_user: CurrentUser = Depends(get_current_user)):
+    return await get_run(thread_id=thread_id, user_id=current_user.id)
 
 
 @router.post("/runs/{thread_id}/resume")
-async def resume_dayend_run(thread_id: str, payload: DayendResumeRequest, _: CurrentUser = Depends(get_current_user)):
-    return await resume_run(thread_id=thread_id, response=payload.response)
+async def resume_dayend_run(thread_id: str, payload: DayendResumeRequest, current_user: CurrentUser = Depends(get_current_user)):
+    return await resume_run(thread_id=thread_id, response=payload.response, user_id=current_user.id)
 
 
 @router.post("/runs/stream")
