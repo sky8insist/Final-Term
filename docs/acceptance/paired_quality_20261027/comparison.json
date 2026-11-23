@@ -1,0 +1,711 @@
+{
+  "schemaVersion": 1,
+  "evaluatorVersion": "paired-quality-v1",
+  "datasetId": "paired-controls",
+  "datasetVersion": "1",
+  "datasetKind": "synthetic-regression",
+  "evidenceStatus": "regression-only",
+  "labelProvenance": "Repository-authored synthetic controls; grounding labels reused from labelled-rule-regression; not independent human labels.",
+  "manifestSha256": "63d7ba51af671c238b1bc1d6a9ed5f7723da1123c0aa65948d8547b1772e7893",
+  "baseline": {
+    "runId": "control-run",
+    "version": "rrf-input+citation-only+unfiltered-plan-control-v1",
+    "sha256": "72b2910b38d5d3bbac11b64ba53b674adc8027d92d2b596986421f4ab7f2c04a"
+  },
+  "candidate": {
+    "runId": "current-run",
+    "version": "lexical-dev+evidence-v2+claim-citation-v1+exam-state-scheduler-v3",
+    "sha256": "501e791231809d3906d70c7e1bc1b1bd881f3d91fae73328511a5a96674576bf"
+  },
+  "config": {
+    "topK": 5,
+    "bootstrapSamples": 2000,
+    "seed": 20261027,
+    "interval": "paired case percentile bootstrap; 95%; null for <2 pairs"
+  },
+  "caseCount": 24,
+  "metrics": {
+    "grounding.decisionAccuracy": {
+      "direction": "higher",
+      "pairedCaseCount": 18,
+      "baselineAvailable": 18,
+      "candidateAvailable": 18,
+      "baselineAllAvailableMean": 0.2777777777777778,
+      "candidateAllAvailableMean": 1,
+      "baseline": 0.2777777777777778,
+      "candidate": 1,
+      "delta": 0.7222222222222222,
+      "improvement": 0.7222222222222222,
+      "deltaCI95": [
+        0.5,
+        0.8888888888888888
+      ]
+    },
+    "grounding.falseAccept": {
+      "direction": "lower",
+      "pairedCaseCount": 6,
+      "baselineAvailable": 6,
+      "candidateAvailable": 6,
+      "baselineAllAvailableMean": 0.8333333333333334,
+      "candidateAllAvailableMean": 0.0,
+      "baseline": 0.8333333333333334,
+      "candidate": 0.0,
+      "delta": -0.8333333333333334,
+      "improvement": 0.8333333333333334,
+      "deltaCI95": [
+        -1.0,
+        -0.5
+      ]
+    },
+    "grounding.falseReject": {
+      "direction": "lower",
+      "pairedCaseCount": 2,
+      "baselineAvailable": 2,
+      "candidateAvailable": 2,
+      "baselineAllAvailableMean": 0.0,
+      "candidateAllAvailableMean": 0.0,
+      "baseline": 0.0,
+      "candidate": 0.0,
+      "delta": 0.0,
+      "improvement": -0.0,
+      "deltaCI95": [
+        0.0,
+        0.0
+      ]
+    },
+    "grounding.supportedAnswerAccept": {
+      "direction": "higher",
+      "pairedCaseCount": 2,
+      "baselineAvailable": 2,
+      "candidateAvailable": 2,
+      "baselineAllAvailableMean": 1.0,
+      "candidateAllAvailableMean": 1.0,
+      "baseline": 1.0,
+      "candidate": 1.0,
+      "delta": 0.0,
+      "improvement": 0.0,
+      "deltaCI95": [
+        0.0,
+        0.0
+      ]
+    },
+    "grounding.unsupportedAnswerAccept": {
+      "direction": "lower",
+      "pairedCaseCount": 8,
+      "baselineAvailable": 8,
+      "candidateAvailable": 8,
+      "baselineAllAvailableMean": 1.0,
+      "candidateAllAvailableMean": 0.0,
+      "baseline": 1.0,
+      "candidate": 0.0,
+      "delta": -1.0,
+      "improvement": 1.0,
+      "deltaCI95": [
+        -1.0,
+        -1.0
+      ]
+    },
+    "plan.capacityViolationRate": {
+      "direction": "lower",
+      "pairedCaseCount": 2,
+      "baselineAvailable": 2,
+      "candidateAvailable": 2,
+      "baselineAllAvailableMean": 0,
+      "candidateAllAvailableMean": 0,
+      "baseline": 0,
+      "candidate": 0,
+      "delta": 0,
+      "improvement": 0,
+      "deltaCI95": [
+        0.0,
+        0.0
+      ]
+    },
+    "plan.duplicateTaskRate": {
+      "direction": "lower",
+      "pairedCaseCount": 2,
+      "baselineAvailable": 2,
+      "candidateAvailable": 2,
+      "baselineAllAvailableMean": 0.0,
+      "candidateAllAvailableMean": 0.0,
+      "baseline": 0.0,
+      "candidate": 0.0,
+      "delta": 0.0,
+      "improvement": -0.0,
+      "deltaCI95": [
+        0.0,
+        0.0
+      ]
+    },
+    "plan.forbiddenTaskRate": {
+      "direction": "lower",
+      "pairedCaseCount": 2,
+      "baselineAvailable": 2,
+      "candidateAvailable": 2,
+      "baselineAllAvailableMean": 0.5,
+      "candidateAllAvailableMean": 0,
+      "baseline": 0.5,
+      "candidate": 0,
+      "delta": -0.5,
+      "improvement": 0.5,
+      "deltaCI95": [
+        -1.0,
+        0.0
+      ]
+    },
+    "plan.taskRelevance": {
+      "direction": "higher",
+      "pairedCaseCount": 2,
+      "baselineAvailable": 2,
+      "candidateAvailable": 2,
+      "baselineAllAvailableMean": 0.0,
+      "candidateAllAvailableMean": 1.0,
+      "baseline": 0.0,
+      "candidate": 1.0,
+      "delta": 1.0,
+      "improvement": 1.0,
+      "deltaCI95": [
+        1.0,
+        1.0
+      ]
+    },
+    "plan.topicCoverage": {
+      "direction": "higher",
+      "pairedCaseCount": 3,
+      "baselineAvailable": 3,
+      "candidateAvailable": 3,
+      "baselineAllAvailableMean": 0.0,
+      "candidateAllAvailableMean": 0.6666666666666666,
+      "baseline": 0.0,
+      "candidate": 0.6666666666666666,
+      "delta": 0.6666666666666666,
+      "improvement": 0.6666666666666666,
+      "deltaCI95": [
+        0.0,
+        1.0
+      ]
+    },
+    "retrieval.isolation": {
+      "direction": "higher",
+      "pairedCaseCount": 3,
+      "baselineAvailable": 3,
+      "candidateAvailable": 3,
+      "baselineAllAvailableMean": 1.0,
+      "candidateAllAvailableMean": 1.0,
+      "baseline": 1.0,
+      "candidate": 1.0,
+      "delta": 0.0,
+      "improvement": 0.0,
+      "deltaCI95": [
+        0.0,
+        0.0
+      ]
+    },
+    "retrieval.mrr": {
+      "direction": "higher",
+      "pairedCaseCount": 3,
+      "baselineAvailable": 3,
+      "candidateAvailable": 3,
+      "baselineAllAvailableMean": 0.6666666666666666,
+      "candidateAllAvailableMean": 0.8333333333333334,
+      "baseline": 0.6666666666666666,
+      "candidate": 0.8333333333333334,
+      "delta": 0.16666666666666666,
+      "improvement": 0.16666666666666666,
+      "deltaCI95": [
+        -0.5,
+        0.5
+      ]
+    },
+    "retrieval.ndcg": {
+      "direction": "higher",
+      "pairedCaseCount": 3,
+      "baselineAvailable": 3,
+      "candidateAvailable": 3,
+      "baselineAllAvailableMean": 0.7584055599248468,
+      "candidateAllAvailableMean": 0.8769765845238192,
+      "baseline": 0.7584055599248468,
+      "candidate": 0.8769765845238192,
+      "delta": 0.1185710245989724,
+      "improvement": 0.1185710245989724,
+      "deltaCI95": [
+        -0.36907024642854247,
+        0.36907024642854247
+      ]
+    },
+    "retrieval.recall": {
+      "direction": "higher",
+      "pairedCaseCount": 3,
+      "baselineAvailable": 3,
+      "candidateAvailable": 3,
+      "baselineAllAvailableMean": 1.0,
+      "candidateAllAvailableMean": 1.0,
+      "baseline": 1.0,
+      "candidate": 1.0,
+      "delta": 0.0,
+      "improvement": 0.0,
+      "deltaCI95": [
+        0.0,
+        0.0
+      ]
+    }
+  },
+  "cases": [
+    {
+      "id": "rank-definition",
+      "kind": "retrieval",
+      "baseline": {
+        "retrieval.ndcg": 0.6442869262030828,
+        "retrieval.mrr": 0.5,
+        "retrieval.recall": 1.0,
+        "retrieval.isolation": 1.0
+      },
+      "candidate": {
+        "retrieval.ndcg": 1.0,
+        "retrieval.mrr": 1.0,
+        "retrieval.recall": 1.0,
+        "retrieval.isolation": 1.0
+      }
+    },
+    {
+      "id": "rank-condition",
+      "kind": "retrieval",
+      "baseline": {
+        "retrieval.ndcg": 0.6309297535714575,
+        "retrieval.mrr": 0.5,
+        "retrieval.recall": 1.0,
+        "retrieval.isolation": 1.0
+      },
+      "candidate": {
+        "retrieval.ndcg": 1.0,
+        "retrieval.mrr": 1.0,
+        "retrieval.recall": 1.0,
+        "retrieval.isolation": 1.0
+      }
+    },
+    {
+      "id": "rank-lexical-ambiguity",
+      "kind": "retrieval",
+      "baseline": {
+        "retrieval.ndcg": 1.0,
+        "retrieval.mrr": 1.0,
+        "retrieval.recall": 1.0,
+        "retrieval.isolation": 1.0
+      },
+      "candidate": {
+        "retrieval.ndcg": 0.6309297535714575,
+        "retrieval.mrr": 0.5,
+        "retrieval.recall": 1.0,
+        "retrieval.isolation": 1.0
+      }
+    },
+    {
+      "id": "plan-exam-scope",
+      "kind": "plan",
+      "baseline": {
+        "plan.taskRelevance": 0.0,
+        "plan.topicCoverage": 0.0,
+        "plan.forbiddenTaskRate": 1,
+        "plan.capacityViolationRate": 0,
+        "plan.duplicateTaskRate": 0.0
+      },
+      "candidate": {
+        "plan.taskRelevance": 1.0,
+        "plan.topicCoverage": 1.0,
+        "plan.forbiddenTaskRate": 0,
+        "plan.capacityViolationRate": 0,
+        "plan.duplicateTaskRate": 0.0
+      }
+    },
+    {
+      "id": "plan-mastered",
+      "kind": "plan",
+      "baseline": {
+        "plan.taskRelevance": 0.0,
+        "plan.topicCoverage": 0.0,
+        "plan.forbiddenTaskRate": 0,
+        "plan.capacityViolationRate": 0,
+        "plan.duplicateTaskRate": 0.0
+      },
+      "candidate": {
+        "plan.taskRelevance": 1.0,
+        "plan.topicCoverage": 1.0,
+        "plan.forbiddenTaskRate": 0,
+        "plan.capacityViolationRate": 0,
+        "plan.duplicateTaskRate": 0.0
+      }
+    },
+    {
+      "id": "plan-no-capacity",
+      "kind": "plan",
+      "baseline": {
+        "plan.taskRelevance": null,
+        "plan.topicCoverage": 0.0,
+        "plan.forbiddenTaskRate": null,
+        "plan.capacityViolationRate": null,
+        "plan.duplicateTaskRate": null
+      },
+      "candidate": {
+        "plan.taskRelevance": null,
+        "plan.topicCoverage": 0.0,
+        "plan.forbiddenTaskRate": null,
+        "plan.capacityViolationRate": null,
+        "plan.duplicateTaskRate": null
+      }
+    },
+    {
+      "id": "evidence-answer-present",
+      "kind": "grounding",
+      "baseline": {
+        "grounding.falseReject": 0.0,
+        "grounding.falseAccept": null,
+        "grounding.supportedAnswerAccept": null,
+        "grounding.unsupportedAnswerAccept": null,
+        "grounding.decisionAccuracy": 1
+      },
+      "candidate": {
+        "grounding.falseReject": 0.0,
+        "grounding.falseAccept": null,
+        "grounding.supportedAnswerAccept": null,
+        "grounding.unsupportedAnswerAccept": null,
+        "grounding.decisionAccuracy": 1
+      }
+    },
+    {
+      "id": "evidence-answer-present-zh",
+      "kind": "grounding",
+      "baseline": {
+        "grounding.falseReject": 0.0,
+        "grounding.falseAccept": null,
+        "grounding.supportedAnswerAccept": null,
+        "grounding.unsupportedAnswerAccept": null,
+        "grounding.decisionAccuracy": 1
+      },
+      "candidate": {
+        "grounding.falseReject": 0.0,
+        "grounding.falseAccept": null,
+        "grounding.supportedAnswerAccept": null,
+        "grounding.unsupportedAnswerAccept": null,
+        "grounding.decisionAccuracy": 1
+      }
+    },
+    {
+      "id": "evidence-partial",
+      "kind": "grounding",
+      "baseline": {
+        "grounding.falseReject": null,
+        "grounding.falseAccept": 1.0,
+        "grounding.supportedAnswerAccept": null,
+        "grounding.unsupportedAnswerAccept": null,
+        "grounding.decisionAccuracy": 0
+      },
+      "candidate": {
+        "grounding.falseReject": null,
+        "grounding.falseAccept": 0.0,
+        "grounding.supportedAnswerAccept": null,
+        "grounding.unsupportedAnswerAccept": null,
+        "grounding.decisionAccuracy": 1
+      }
+    },
+    {
+      "id": "evidence-partial-zh",
+      "kind": "grounding",
+      "baseline": {
+        "grounding.falseReject": null,
+        "grounding.falseAccept": 1.0,
+        "grounding.supportedAnswerAccept": null,
+        "grounding.unsupportedAnswerAccept": null,
+        "grounding.decisionAccuracy": 0
+      },
+      "candidate": {
+        "grounding.falseReject": null,
+        "grounding.falseAccept": 0.0,
+        "grounding.supportedAnswerAccept": null,
+        "grounding.unsupportedAnswerAccept": null,
+        "grounding.decisionAccuracy": 1
+      }
+    },
+    {
+      "id": "evidence-absent",
+      "kind": "grounding",
+      "baseline": {
+        "grounding.falseReject": null,
+        "grounding.falseAccept": 1.0,
+        "grounding.supportedAnswerAccept": null,
+        "grounding.unsupportedAnswerAccept": null,
+        "grounding.decisionAccuracy": 0
+      },
+      "candidate": {
+        "grounding.falseReject": null,
+        "grounding.falseAccept": 0.0,
+        "grounding.supportedAnswerAccept": null,
+        "grounding.unsupportedAnswerAccept": null,
+        "grounding.decisionAccuracy": 1
+      }
+    },
+    {
+      "id": "evidence-empty",
+      "kind": "grounding",
+      "baseline": {
+        "grounding.falseReject": null,
+        "grounding.falseAccept": 0.0,
+        "grounding.supportedAnswerAccept": null,
+        "grounding.unsupportedAnswerAccept": null,
+        "grounding.decisionAccuracy": 1
+      },
+      "candidate": {
+        "grounding.falseReject": null,
+        "grounding.falseAccept": 0.0,
+        "grounding.supportedAnswerAccept": null,
+        "grounding.unsupportedAnswerAccept": null,
+        "grounding.decisionAccuracy": 1
+      }
+    },
+    {
+      "id": "evidence-cross-discipline",
+      "kind": "grounding",
+      "baseline": {
+        "grounding.falseReject": null,
+        "grounding.falseAccept": 1.0,
+        "grounding.supportedAnswerAccept": null,
+        "grounding.unsupportedAnswerAccept": null,
+        "grounding.decisionAccuracy": 0
+      },
+      "candidate": {
+        "grounding.falseReject": null,
+        "grounding.falseAccept": 0.0,
+        "grounding.supportedAnswerAccept": null,
+        "grounding.unsupportedAnswerAccept": null,
+        "grounding.decisionAccuracy": 1
+      }
+    },
+    {
+      "id": "evidence-fabrication-pressure",
+      "kind": "grounding",
+      "baseline": {
+        "grounding.falseReject": null,
+        "grounding.falseAccept": 1.0,
+        "grounding.supportedAnswerAccept": null,
+        "grounding.unsupportedAnswerAccept": null,
+        "grounding.decisionAccuracy": 0
+      },
+      "candidate": {
+        "grounding.falseReject": null,
+        "grounding.falseAccept": 0.0,
+        "grounding.supportedAnswerAccept": null,
+        "grounding.unsupportedAnswerAccept": null,
+        "grounding.decisionAccuracy": 1
+      }
+    },
+    {
+      "id": "answer-supported",
+      "kind": "grounding",
+      "baseline": {
+        "grounding.falseReject": null,
+        "grounding.falseAccept": null,
+        "grounding.supportedAnswerAccept": 1.0,
+        "grounding.unsupportedAnswerAccept": null,
+        "grounding.decisionAccuracy": 1
+      },
+      "candidate": {
+        "grounding.falseReject": null,
+        "grounding.falseAccept": null,
+        "grounding.supportedAnswerAccept": 1.0,
+        "grounding.unsupportedAnswerAccept": null,
+        "grounding.decisionAccuracy": 1
+      }
+    },
+    {
+      "id": "answer-supported-zh",
+      "kind": "grounding",
+      "baseline": {
+        "grounding.falseReject": null,
+        "grounding.falseAccept": null,
+        "grounding.supportedAnswerAccept": 1.0,
+        "grounding.unsupportedAnswerAccept": null,
+        "grounding.decisionAccuracy": 1
+      },
+      "candidate": {
+        "grounding.falseReject": null,
+        "grounding.falseAccept": null,
+        "grounding.supportedAnswerAccept": 1.0,
+        "grounding.unsupportedAnswerAccept": null,
+        "grounding.decisionAccuracy": 1
+      }
+    },
+    {
+      "id": "answer-fabricated-id",
+      "kind": "grounding",
+      "baseline": {
+        "grounding.falseReject": null,
+        "grounding.falseAccept": null,
+        "grounding.supportedAnswerAccept": null,
+        "grounding.unsupportedAnswerAccept": 1.0,
+        "grounding.decisionAccuracy": 0
+      },
+      "candidate": {
+        "grounding.falseReject": null,
+        "grounding.falseAccept": null,
+        "grounding.supportedAnswerAccept": null,
+        "grounding.unsupportedAnswerAccept": 0.0,
+        "grounding.decisionAccuracy": 1
+      }
+    },
+    {
+      "id": "answer-missing-id",
+      "kind": "grounding",
+      "baseline": {
+        "grounding.falseReject": null,
+        "grounding.falseAccept": null,
+        "grounding.supportedAnswerAccept": null,
+        "grounding.unsupportedAnswerAccept": 1.0,
+        "grounding.decisionAccuracy": 0
+      },
+      "candidate": {
+        "grounding.falseReject": null,
+        "grounding.falseAccept": null,
+        "grounding.supportedAnswerAccept": null,
+        "grounding.unsupportedAnswerAccept": 0.0,
+        "grounding.decisionAccuracy": 1
+      }
+    },
+    {
+      "id": "answer-irrelevant-source",
+      "kind": "grounding",
+      "baseline": {
+        "grounding.falseReject": null,
+        "grounding.falseAccept": null,
+        "grounding.supportedAnswerAccept": null,
+        "grounding.unsupportedAnswerAccept": 1.0,
+        "grounding.decisionAccuracy": 0
+      },
+      "candidate": {
+        "grounding.falseReject": null,
+        "grounding.falseAccept": null,
+        "grounding.supportedAnswerAccept": null,
+        "grounding.unsupportedAnswerAccept": 0.0,
+        "grounding.decisionAccuracy": 1
+      }
+    },
+    {
+      "id": "answer-numeric-invention",
+      "kind": "grounding",
+      "baseline": {
+        "grounding.falseReject": null,
+        "grounding.falseAccept": null,
+        "grounding.supportedAnswerAccept": null,
+        "grounding.unsupportedAnswerAccept": 1.0,
+        "grounding.decisionAccuracy": 0
+      },
+      "candidate": {
+        "grounding.falseReject": null,
+        "grounding.falseAccept": null,
+        "grounding.supportedAnswerAccept": null,
+        "grounding.unsupportedAnswerAccept": 0.0,
+        "grounding.decisionAccuracy": 1
+      }
+    },
+    {
+      "id": "answer-negation-flip",
+      "kind": "grounding",
+      "baseline": {
+        "grounding.falseReject": null,
+        "grounding.falseAccept": null,
+        "grounding.supportedAnswerAccept": null,
+        "grounding.unsupportedAnswerAccept": 1.0,
+        "grounding.decisionAccuracy": 0
+      },
+      "candidate": {
+        "grounding.falseReject": null,
+        "grounding.falseAccept": null,
+        "grounding.supportedAnswerAccept": null,
+        "grounding.unsupportedAnswerAccept": 0.0,
+        "grounding.decisionAccuracy": 1
+      }
+    },
+    {
+      "id": "answer-mixed-claims",
+      "kind": "grounding",
+      "baseline": {
+        "grounding.falseReject": null,
+        "grounding.falseAccept": null,
+        "grounding.supportedAnswerAccept": null,
+        "grounding.unsupportedAnswerAccept": 1.0,
+        "grounding.decisionAccuracy": 0
+      },
+      "candidate": {
+        "grounding.falseReject": null,
+        "grounding.falseAccept": null,
+        "grounding.supportedAnswerAccept": null,
+        "grounding.unsupportedAnswerAccept": 0.0,
+        "grounding.decisionAccuracy": 1
+      }
+    },
+    {
+      "id": "answer-irrelevant-extra-id",
+      "kind": "grounding",
+      "baseline": {
+        "grounding.falseReject": null,
+        "grounding.falseAccept": null,
+        "grounding.supportedAnswerAccept": null,
+        "grounding.unsupportedAnswerAccept": 1.0,
+        "grounding.decisionAccuracy": 0
+      },
+      "candidate": {
+        "grounding.falseReject": null,
+        "grounding.falseAccept": null,
+        "grounding.supportedAnswerAccept": null,
+        "grounding.unsupportedAnswerAccept": 0.0,
+        "grounding.decisionAccuracy": 1
+      }
+    },
+    {
+      "id": "answer-invented-link",
+      "kind": "grounding",
+      "baseline": {
+        "grounding.falseReject": null,
+        "grounding.falseAccept": null,
+        "grounding.supportedAnswerAccept": null,
+        "grounding.unsupportedAnswerAccept": 1.0,
+        "grounding.decisionAccuracy": 0
+      },
+      "candidate": {
+        "grounding.falseReject": null,
+        "grounding.falseAccept": null,
+        "grounding.supportedAnswerAccept": null,
+        "grounding.unsupportedAnswerAccept": 0.0,
+        "grounding.decisionAccuracy": 1
+      }
+    }
+  ],
+  "limitations": [
+    "offline scoring of supplied outputs and labels; no model/service was invoked by evaluator",
+    "human-labelled provenance is supplied metadata, not independently verified reviewer identity",
+    "guard verdicts use fixed evidence/answer stimuli; they are not generated-answer semantic quality",
+    "bootstrap assumes independent cases; related learners/documents need grouped sampling",
+    "synthetic data, small samples and repeated comparisons cannot establish production uplift",
+    "plan relevance labels and capacity are external judgements; no learning efficacy claim"
+  ],
+  "gate": {
+    "status": "passed",
+    "failures": [],
+    "spec": {
+      "minimumCaseCount": 2,
+      "candidateMinimums": {
+        "retrieval.isolation": 1.0,
+        "grounding.decisionAccuracy": 1.0,
+        "plan.topicCoverage": 0.5
+      },
+      "candidateMaximums": {
+        "grounding.falseReject": 0.0,
+        "grounding.falseAccept": 0.0,
+        "grounding.unsupportedAnswerAccept": 0.0,
+        "plan.forbiddenTaskRate": 0.0,
+        "plan.capacityViolationRate": 0.0
+      },
+      "minimumImprovements": {},
+      "minimumImprovementCI95LowerBounds": {}
+    },
+    "specSha256": "896917689c60d686bf99b162bfb509893af2d61c889c12ecc218a01e8c671bd1"
+  }
+}

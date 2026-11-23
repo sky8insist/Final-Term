@@ -1,0 +1,4 @@
+export type CalendarTask = { id:string; subject_id:string; title:string; scheduled_date:string; estimated_minutes:number; status:string; source:string; locked:boolean; planVersion:number; planExamDate:string; knowledge_point_id?:string };
+export type CalendarDay = { date:string; minutes:number|null; version:number; plannedMinutes:number; overCapacity:boolean; examConflict:boolean; missedCount:number; dueCards:number; dueSubjects:Array<{subject_id:string;count:number}>; tasks:CalendarTask[]; exams:Array<{ id:string; subject_id:string; title:string; exam_date:string }> };
+export type CalendarData = { today:string; timezone:string; days:CalendarDay[] };
+export type ExamProposal = { id:string; title:string; exam_date:string; scope_text:string; event_id:string|null; evidence:Array<{ id:string; filename:string; pageNumber?:number; chunkText:string }> };

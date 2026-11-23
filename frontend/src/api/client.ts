@@ -1,4 +1,6 @@
 import { supabase } from '../lib/supabase';
+import { readVersioned, type ResourceVersion, type VerifiedSnapshot } from './versionedCache';
+import type { MaterialPurpose, MaterialProcessing } from '../types';
 import type { ChatMessage, DashboardData, DialogueAct, Exam, ExamAttempt, ExamAttemptSummary, ExamDetail, ExamGenerateInput, ExamGeneration, ExamQuestionType, KnowledgePolicy, Material, MindMapData, MindMapGenerateInput, MindMapNode, ProcessingTask, QuestionGradingResult, StudyPlanInput, StudyPlanOverview, StudyPlanPreview, StudyTask, Subject, TutorRole } from '../types';
 
 const baseUrl = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000').replace(/\/$/, '');
@@ -12,6 +14,7 @@ export class ApiError extends Error {
 
 type BackendSubject = { id: string; name: string; description?: string | null; externalKnowledgeEnabled?: boolean; external_knowledge_enabled?: boolean };
 type BackendTask = {
+  locked?: boolean;
   id: string; subject_id?: string; subjectId?: string; title: string;
   scheduled_date?: string; scheduledDate?: string; estimated_minutes?: number;
   estimatedMinutes?: number; status: string; priority?: number; knowledge_key?: string;
@@ -20,8 +23,10 @@ type BackendTask = {
 type BackendMaterial = {
   id: string; subjectId: string; filename: string; contentType: string;
   fileSize: number; status: string; errorMessage?: string | null; createdAt: string;
+  materialPurpose?: MaterialPurpose;
 };
 type BackendExam = {
+  assessment_mode?: 'formal' | 'adaptive';
   id: string; title: string; status?: string; created_at?: string; createdAt?: string;
   question_count?: number; questionCount?: number; score?: number | null;
   question_types?: ExamQuestionType[]; questionTypes?: ExamQuestionType[];
@@ -30,22 +35,22 @@ type BackendExam = {
   generation?: ExamGeneration | null;
 };
 type BackendAttempt = {
+  adaptive_state?: ExamAttempt['adaptiveState'];
   id: string; exam_id?: string; examId?: string; status: ExamAttempt['status'];
   started_at?: string; startedAt?: string; expires_at?: string; expiresAt?: string;
   score?: number | null; max_score?: number | null; maxScore?: number | null;
   exam: BackendExam; responses?: Record<string, unknown>; results?: Record<string, Record<string, unknown>>;
+  learnerConfidences?: Record<string, number | null>;
 };
 type BackendArtifact = {
+  subject_id?: string;
+  artifact_type?: string;
+  version?: number;
   id?: string;
   title?: string;
   content?: Record<string, unknown> & { nodes?: Array<Record<string, unknown>>; edges?: Array<Record<string, unknown>> };
   citations?: Array<Record<string, unknown>>;
 };
-type CacheEnvelope<T> = { data: T; cachedAt: string; stale: true };
-
-function announceCache(detail: { resource: string; cachedAt: string } | null) {
-  window.dispatchEvent(new CustomEvent('examai-cache-status', { detail }));
-}
 
 async function sessionToken(refresh = false): Promise<string> {
   const result = refresh ? await supabase.auth.refreshSession() : await supabase.auth.getSession();
@@ -158,32 +163,32 @@ async function streamDayendRun(payload: { userInput: string; entryPoint?: string
   }
 }
 
-async function saveCache<T>(resource: string, data: T, subjectId?: string) {
+async function resourceVersion(resource:string,subjectId?:string):Promise<ResourceVersion> {
+  return apiV1(`/workspace/cache/${encodeURIComponent(resource)}/version${subjectId?`?subjectId=${encodeURIComponent(subjectId)}`:''}`,undefined,3000);
+}
+
+async function saveCache<T>(resource: string, data: T, subjectId?: string, expectedVersion?:string) {
   try {
+    const version=expectedVersion??(await resourceVersion(resource,subjectId)).version;
     await apiV1(`/workspace/cache/${resource}`, {
-      method: 'PUT', body: JSON.stringify({ data, subjectId }),
-    });
+      method: 'PUT', body: JSON.stringify({ data, subjectId, expectedVersion:version }),
+    },3000);
   } catch { /* Cache failure must never fail a successful primary request. */ }
 }
 
-async function loadCache<T>(resource: string, subjectId?: string): Promise<T> {
+async function loadCache<T>(resource: string, subjectId?: string): Promise<VerifiedSnapshot<T>> {
   const query = subjectId ? `?subjectId=${encodeURIComponent(subjectId)}` : '';
-  const cached = await apiV1<CacheEnvelope<T>>(`/workspace/cache/${resource}${query}`);
-  announceCache({ resource, cachedAt: cached.cachedAt });
-  return cached.data;
+  return apiV1<VerifiedSnapshot<T>>(`/workspace/cache/${resource}${query}`,undefined,5000);
 }
 
 async function cached<T>(resource: string, subjectId: string | undefined, loader: () => Promise<T>): Promise<T> {
-  try {
-    const data = await loader();
-    announceCache(null);
-    void saveCache(resource, data, subjectId);
-    return data;
-  } catch (error) {
-    if (error instanceof ApiError && [401, 403, 404, 422].includes(error.status)) throw error;
-    try { return await loadCache<T>(resource, subjectId); }
-    catch { throw error; }
-  }
+  return readVersioned({resource,subjectId,loader,
+    owner:async()=> (await supabase.auth.getSession()).data.session?.user.id??null,
+    version:()=>resourceVersion(resource,subjectId),load:()=>loadCache<T>(resource,subjectId),
+    save:(data,version)=>saveCache(resource,data,subjectId,version),
+    announce:detail=>window.dispatchEvent(new CustomEvent('examai-cache-status',{detail})),
+    failure:reason=>new ApiError(reason==='owner_changed'?'登录账户已变化，请重新读取。':'学习记录持续变化，请刷新后重试。',reason==='owner_changed'?401:409),
+  });
 }
 
 function subjectFromApi(item: BackendSubject): Subject {
@@ -197,6 +202,7 @@ function taskFromApi(item: BackendTask): StudyTask {
   const minutes = item.estimatedMinutes ?? item.estimated_minutes ?? 0;
   return {
     id: item.id,
+    locked: item.locked ?? false,
     subjectId: item.subjectId ?? item.subject_id ?? '',
     title: item.title,
     time: `${minutes} 分钟`,
@@ -225,6 +231,7 @@ function materialFromApi(item: BackendMaterial): Material {
     type: item.filename.includes('.') ? item.filename.split('.').pop()!.toLowerCase() : item.contentType,
     status, size: item.fileSize, uploadedAt: item.createdAt,
     errorMessage: item.errorMessage,
+    materialPurpose: item.materialPurpose ?? 'learning',
   };
 }
 
@@ -242,6 +249,7 @@ function examDetailFromApi(item: BackendExam): ExamDetail {
   return {
     ...examFromApi({ ...item, questionCount: item.questionCount ?? item.question_count ?? item.questions?.length ?? 0 }),
     durationMinutes: Number(item.durationMinutes ?? item.duration_minutes ?? 0),
+    assessmentMode: item.assessment_mode ?? 'formal',
     totalPoints: Number(item.totalPoints ?? item.total_points ?? 0),
     generation: item.generation ?? null,
     questions: (item.questions ?? []).map((question, index) => ({
@@ -272,6 +280,8 @@ function gradingResultFromApi(item: Record<string, unknown>): QuestionGradingRes
     correctAnswer: item.correctAnswer ?? item.correct_answer,
     explanation: String(item.explanation ?? ''),
     citations: Array.isArray(item.citations) ? item.citations.map(String) : [],
+    learnerConfidence: item.learnerConfidence == null ? null : Number(item.learnerConfidence),
+    confidenceMismatch: item.confidenceMismatch == null ? null : Number(item.confidenceMismatch),
   };
 }
 
@@ -286,15 +296,10 @@ function attemptFromApi(item: BackendAttempt): ExamAttempt {
     maxScore: item.maxScore ?? item.max_score,
     exam: examDetailFromApi(item.exam),
     responses: item.responses ?? {},
+    learnerConfidences: item.learnerConfidences ?? {},
+    adaptiveState: item.adaptive_state ?? {},
     results: Object.fromEntries(Object.entries(item.results ?? {}).map(([questionId, result]) => [questionId, gradingResultFromApi(result)])),
   };
-}
-
-function finiteMastery(value: unknown): number | null {
-  if (value === null || value === undefined || value === '') return null;
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return null;
-  return Math.min(Math.max(parsed > 1 ? parsed / 100 : parsed, 0), 1);
 }
 
 function mindMapFromArtifact(artifact: BackendArtifact | null): MindMapData {
@@ -308,7 +313,7 @@ function mindMapFromArtifact(artifact: BackendArtifact | null): MindMapData {
     level: Number(row.level ?? (row.parentId == null ? 0 : 1)),
     importance: Number(row.importance ?? (row.parentId == null ? 1 : 0.5)),
     examImportance: String(row.examImportance ?? 'medium') as MindMapNode['examImportance'],
-    mastery: finiteMastery(row.mastery),
+    mastery: null,
     description: String(row.description ?? ''),
     sourceIds: (Array.isArray(row.sourceIds)
       ? row.sourceIds
@@ -328,6 +333,7 @@ function mindMapFromArtifact(artifact: BackendArtifact | null): MindMapData {
   const citations = artifact?.citations ?? [];
   return {
     artifactId: artifact?.id,
+    artifactVersion: artifact?.version,
     title: String(content.title ?? artifact?.title ?? ''),
     focusQuestion: String(content.focusQuestion ?? ''),
     summary: String(content.summary ?? ''),
@@ -345,7 +351,74 @@ function mindMapFromArtifact(artifact: BackendArtifact | null): MindMapData {
   };
 }
 
+async function mindMapWithLearning(artifact: BackendArtifact | null, subjectId: string, retry = true): Promise<MindMapData> {
+  if (!artifact?.id) return mindMapFromArtifact(null);
+  if (artifact.subject_id !== subjectId || artifact.artifact_type !== 'mind_map') throw new ApiError('导图不属于当前科目。', 404);
+  const overlay = await apiV1<{ artifactVersion: number; nodes: Record<string, import('../types').MindMapLearning> }>(`/artifacts/${encodeURIComponent(artifact.id)}/learning`);
+  if (overlay.artifactVersion !== artifact.version) {
+    if (retry) return mindMapWithLearning(await apiV1<BackendArtifact>(`/artifacts/${encodeURIComponent(artifact.id)}`), subjectId, false);
+    throw new ApiError('导图已变化，请刷新后重试。', 409);
+  }
+  const map = mindMapFromArtifact(artifact);
+  return { ...map, nodes: map.nodes.map(node => ({ ...node, learning: overlay.nodes[node.id], mastery: overlay.nodes[node.id]?.masteryScore ?? null })) };
+}
+
 export const api = {
+  workspaceVersion: resourceVersion,
+  dailyPreview: (subjectId:string) => apiV1<import('../types/dailyReview').DailyReport>(`/daily-reviews/preview?subject_id=${encodeURIComponent(subjectId)}`),
+  dailyHistory: (subjectId:string,before?:string,beforeId?:string) => apiV1<import('../types/dailyReview').DailyReview[]>(`/daily-reviews?${new URLSearchParams({subject_id:subjectId,...(before?{before}:{}),...(beforeId?{before_id:beforeId}:{})})}`),
+  dailyReview: (id:string) => apiV1<import('../types/dailyReview').DailyReview>(`/daily-reviews/${encodeURIComponent(id)}`),
+  createDailyReview: (subjectId:string,requestId:string) => apiV1<import('../types/dailyReview').DailyReview>('/daily-reviews',{method:'POST',body:JSON.stringify({subjectId,requestId})}),
+  decideDailyReview: (id:string,version:number,approve:boolean) => apiV1<import('../types/dailyReview').DailyReview>(`/daily-reviews/${encodeURIComponent(id)}/decision`,{method:'POST',body:JSON.stringify({version,approve})}),
+  dailySchedule: (subjectId:string) => apiV1<import('../types/dailyReview').DailySchedule>(`/daily-reviews/schedule?subject_id=${encodeURIComponent(subjectId)}`),
+  retryLearningJob: (id:string) => apiV1(`/learning-jobs/${encodeURIComponent(id)}/retry`,{method:'POST'}),
+  saveDailySchedule: (subjectId:string,payload:{enabled:boolean;hour:number;version:number}) => apiV1(`/daily-reviews/schedule?subject_id=${encodeURIComponent(subjectId)}`,{method:'PUT',body:JSON.stringify(payload)}),
+  lectureCapabilities: () => apiV1<import('../types/lecture').LectureCapabilities>('/lectures/capabilities'),
+  lectures: (subjectId:string) => apiV1<import('../types/lecture').Lecture[]>(`/lectures?subject_id=${encodeURIComponent(subjectId)}`),
+  lectureAudioMaterials: (subjectId:string) => apiV1<Array<{id:string;filename:string;status:string}>>(`/lectures/audio-materials?subject_id=${encodeURIComponent(subjectId)}`),
+  attachLecture: (subjectId:string,materialId:string,title:string,sourceKind:'recording'|'upload') => apiV1<import('../types/lecture').Lecture>('/lectures',{method:'POST',body:JSON.stringify({subject_id:subjectId,material_id:materialId,title,source_kind:sourceKind})}),
+  lecture: (id:string,subjectId:string) => apiV1<import('../types/lecture').LectureDetail>(`/lectures/${encodeURIComponent(id)}?subject_id=${encodeURIComponent(subjectId)}`),
+  lectureTranscript: (id:string,offset=0,blockId?:string) => apiV1<import('../types/lecture').TranscriptPage>(`/lectures/${encodeURIComponent(id)}/transcript?${new URLSearchParams({offset:String(offset),limit:'50',...(blockId?{block_id:blockId}:{})})}`),
+  alignLectureTopic: (id:string,blockId:string,topicId:string|null,version:number) => apiV1<import('../types/lecture').Lecture>(`/lectures/${encodeURIComponent(id)}/blocks/${encodeURIComponent(blockId)}/topic`,{method:'PUT',body:JSON.stringify({topic_id:topicId,version})}),
+  materialSource: (id:string) => apiV1<{url:string;expiresIn:number}>(`/materials/${encodeURIComponent(id)}/source`),
+  retryLectureTask: (id:string) => apiV1<ProcessingTask>(`/tasks/${encodeURIComponent(id)}/retry`,{method:'POST'}),
+  calendar: (start:string,end:string,subjectId?:string) => apiV1<import('../types/calendar').CalendarData>(`/calendar?${new URLSearchParams({ start,end,...(subjectId ? {subject_id:subjectId}:{}) })}`),
+  saveAvailability: (day:string,minutes:number,version:number) => apiV1(`/calendar/availability/${encodeURIComponent(day)}`,{method:'PUT',body:JSON.stringify({minutes,version})}),
+  moveCalendarTask: (id:string,day:string,version:number) => apiV1(`/calendar/tasks/${encodeURIComponent(id)}/move`,{method:'POST',body:JSON.stringify({day,version})}),
+  proposeCalendarExams: (subjectId:string,materialId:string) => apiV1<{proposals:import('../types/calendar').ExamProposal[];truncated:boolean;warnings:string[]}>(`/calendar/exam-proposals`,{method:'POST',body:JSON.stringify({subject_id:subjectId,material_id:materialId})}),
+  confirmCalendarExam: (id:string,values:Record<string,unknown>) => apiV1<{id:string}>(`/calendar/exam-proposals/${encodeURIComponent(id)}/confirm`,{method:'POST',body:JSON.stringify(values)}),
+  notes: (subjectId: string) => apiV1<import('../types').NoteArtifact[]>(`/notes?subject_id=${encodeURIComponent(subjectId)}`),
+  generateNote: (payload: { subjectId: string; mode: import('../types').NoteMode; scope?: string; materialIds?: string[]; knowledgePointId?: string }) => apiV1<import('../types').NoteArtifact>('/notes', { method: 'POST', body: JSON.stringify(payload) }, 240_000),
+  updateNote: (id: string, payload: { version: number; title: string; content: import('../types').NoteArtifact['content'] }) => apiV1<import('../types').NoteArtifact>(`/notes/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+  note: (id: string) => apiV1<import('../types').NoteArtifact>(`/notes/${id}`),
+  noteVersions: (id: string) => apiV1<Array<Pick<import('../types').NoteVersion, 'version' | 'created_at'>>>(`/notes/${id}/versions`),
+  noteVersion: (id: string, version: number) => apiV1<import('../types').NoteVersion>(`/notes/${id}/versions/${version}`),
+  restoreNote: (id: string, version: number, targetVersion: number) => apiV1<import('../types').NoteArtifact>(`/notes/${id}/restore`, { method: 'POST', body: JSON.stringify({ version, targetVersion }) }),
+  rewriteNote: (id: string, payload: Omit<import('../types').NoteRewrite, 'replacement' | 'citationIds'> & { instruction: string }) => apiV1<import('../types').NoteRewrite>(`/notes/${id}/rewrite`, { method: 'POST', body: JSON.stringify(payload) }, 120_000),
+  convertNote: (id: string, version: number, target: 'flashcards' | 'mind_map' | 'quiz') => apiV1<{ target: string; result: { id: string; title?: string }; sourceArtifactId: string; sourceArtifactVersion: number }>(`/notes/${id}/convert`, { method: 'POST', body: JSON.stringify({ version, target, count: 10 }) }, 240_000),
+  exportNote: async (id: string) => {
+    const response = await authenticatedFetch(`/artifacts/${id}/export?format=markdown`);
+    if (!response.ok) throw new ApiError('笔记导出失败，请重试。', response.status);
+    const url = URL.createObjectURL(await response.blob());
+    const link = document.createElement('a'); link.href = url; link.download = `notes-${id}.md`; link.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  },
+  nextActions: () => apiV1<import('../types').RecommendationData>('/recommendations/next-actions?audit=true'),
+  qualityMetrics: (days: number) => apiV1<import('./learningMetrics').QualityMetrics>(`/recommendations/quality-metrics?days=${days}`),
+  learningOutcomes: (days: number) => apiV1<import('./learningMetrics').LearningOutcomes>(`/recommendations/learning-outcomes?days=${days}`),
+  predictionCoverage: (days: number) => apiV1<import('./learningMetrics').PredictionCoverage>(`/recommendations/prediction-coverage?days=${days}`),
+  recommendationHistory: (cursor?: string) => apiV1<import('./learningMetrics').HistoryPage>(`/recommendations/history?limit=20${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`),
+  recommendationAudit: (id: string, cursor?: string) => apiV1<import('./learningMetrics').AuditPage>(`/recommendations/${encodeURIComponent(id)}/audit?limit=30${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`),
+  recommendationFeedback: (id: string, event: 'impression' | 'clicked') => apiV1<{ recorded: boolean }>(`/recommendations/${id}/feedback`, { method: 'POST', keepalive: true, body: JSON.stringify({ event }) }, 5000),
+  examGoals: (subjectId: string) => apiV1<import('../types').ExamGoals>(`/courses/${encodeURIComponent(subjectId)}/exam-goals`),
+  saveExamEvent: (subjectId: string, values: Record<string, unknown>, eventId?: string) => apiV1(`/courses/${encodeURIComponent(subjectId)}/exam-events${eventId ? `/${encodeURIComponent(eventId)}` : ''}`, { method: eventId ? 'PUT' : 'POST', body: JSON.stringify(values) }),
+  createSyllabus: (subjectId: string, values: Record<string, unknown>) => apiV1(`/courses/${encodeURIComponent(subjectId)}/syllabi`, { method: 'POST', body: JSON.stringify(values) }),
+  courseStructure: (subjectId: string) => apiV1<import('../types').CourseStructure>(`/courses/${encodeURIComponent(subjectId)}/structure`),
+  learnerState: (subjectId: string) => apiV1<import('../types').LearnerState>(`/courses/${encodeURIComponent(subjectId)}/learner-state`),
+  coverTopic: (subjectId: string, topicId: string) => apiV1(`/courses/${encodeURIComponent(subjectId)}/topics/${encodeURIComponent(topicId)}/covered`, { method: 'POST' }),
+  createUnit: (subjectId: string, title: string) => apiV1(`/courses/${encodeURIComponent(subjectId)}/units`, { method: 'POST', body: JSON.stringify({ title }) }),
+  createTopic: (subjectId: string, title: string, unitId: string | null) => apiV1(`/courses/${encodeURIComponent(subjectId)}/topics`, { method: 'POST', body: JSON.stringify({ title, unit_id: unitId }) }),
+  updateTopic: (subjectId: string, topicId: string, values: Record<string, unknown>) => apiV1(`/courses/${encodeURIComponent(subjectId)}/topics/${encodeURIComponent(topicId)}`, { method: 'PATCH', body: JSON.stringify(values) }),
   currentUser: () => apiV1<{ id: string; email: string | null; role: string | null }>('/auth/me'),
 
   dashboard: () => cached<DashboardData>('dashboard', undefined, async () => {
@@ -371,18 +444,26 @@ export const api = {
   }),
 
   materials: async (subjectId: string) => (await apiV1<BackendMaterial[]>(`/materials?subject_id=${encodeURIComponent(subjectId)}`)).map(materialFromApi),
-  addMaterial: async (subjectId: string, file: File) => {
+  materialProcessing: (subjectId: string) => apiV1<MaterialProcessing[]>(`/materials/processing?subject_id=${encodeURIComponent(subjectId)}`),
+  retryUploadNotes: (subjectId: string, materialId: string) => apiV1<{conversionId: string | null}>(`/materials/${encodeURIComponent(materialId)}/notes/retry?subject_id=${encodeURIComponent(subjectId)}`, { method: 'POST' }),
+  materialOutline: (subjectId: string, materialId: string) => apiV1<import('../types/materialOutline').MaterialOutline | null>(`/materials/${encodeURIComponent(materialId)}/outline?subject_id=${encodeURIComponent(subjectId)}`),
+  prepareMaterialOutline: (subjectId: string, materialId: string) => apiV1<import('../types/materialOutline').MaterialOutline>(`/materials/${encodeURIComponent(materialId)}/outline?subject_id=${encodeURIComponent(subjectId)}`, { method: 'POST' }),
+  decideMaterialTopic: (id: string, version: number, action: 'accept' | 'reject', title?: string) => apiV1<import('../types/materialOutline').TopicProposal>(`/materials/topic-proposals/${encodeURIComponent(id)}/decision`, { method: 'POST', body: JSON.stringify({ version, action, title }) }),
+  retryMaterialTask: (id: string) => apiV1<ProcessingTask>(`/tasks/${encodeURIComponent(id)}/retry`, { method: 'POST' }),
+  addMaterial: async (subjectId: string, file: File, materialPurpose: MaterialPurpose = 'learning', notesMode?: import('../types').UploadNotesMode) => {
     const form = new FormData();
     form.append('subject_id', subjectId);
     form.append('file', file);
-    const result = await apiV1<{ material: BackendMaterial; task: ProcessingTask }>('/materials/uploads', { method: 'POST', body: form });
-    return { material: materialFromApi(result.material), task: result.task };
+    form.append('materialPurpose', materialPurpose);
+    if (notesMode) form.append('notesMode', notesMode);
+    const result = await apiV1<{ material: BackendMaterial; task: ProcessingTask | null; deduplicated: boolean }>('/materials/uploads', { method: 'POST', body: form });
+    return { material: materialFromApi(result.material), task: result.task, deduplicated: result.deduplicated };
   },
   task: (taskId: string) => apiV1<ProcessingTask>(`/tasks/${encodeURIComponent(taskId)}`),
   tasks: (subjectId: string, activeOnly = false) => apiV1<ProcessingTask[]>(`/tasks?subject_id=${encodeURIComponent(subjectId)}&active_only=${activeOnly}`),
 
   chatHistory: (subjectId: string) => cached<ChatMessage[]>('chat', subjectId, () => apiV1(`/chat/history/${encodeURIComponent(subjectId)}`)),
-  chat: async (payload: { subject_id: string; content: string; session_id: string; role: TutorRole; interaction_id?: string | null; knowledge_policy?: KnowledgePolicy; dialogue_act_override?: DialogueAct }) => {
+  chat: async (payload: { subject_id: string; content: string; session_id: string; role: TutorRole; interaction_id?: string | null; knowledge_policy?: KnowledgePolicy; dialogue_act_override?: DialogueAct; conversion_id?: string }) => {
     const result = await apiV1<{
       answer: string;
       citations?: ChatMessage['citations'];
@@ -403,6 +484,7 @@ export const api = {
         knowledgePolicy: payload.knowledge_policy ?? 'course_only',
         allowExternalKnowledge: payload.knowledge_policy !== 'course_only',
         dialogueActOverride: payload.dialogue_act_override,
+        conversionId: payload.conversion_id,
       }),
     });
     return {
@@ -419,14 +501,27 @@ export const api = {
     };
   },
 
-  mindMap: (subjectId: string) => cached<MindMapData>('mind-map', subjectId, async () => {
+  conversionCapabilities: () => apiV1<Record<import('../types/conversion').ConversionSource['kind'], import('../types/conversion').ConversionTarget[]>>('/conversions/capabilities'),
+  convert: (payload: import('../types/conversion').ConversionInput) => apiV1<import('../types/conversion').Conversion>('/conversions', { method: 'POST', body: JSON.stringify(payload) }),
+  conversions: (subjectId: string, objectId?: string) => apiV1<import('../types/conversion').Conversion[]>(`/conversions?${new URLSearchParams({ subject_id: subjectId, ...(objectId ? { object_id: objectId } : {}) })}`),
+  conversionTutorContext: (id: string, subjectId: string) => apiV1<import('../types/conversion').TutorContext>(`/conversions/${encodeURIComponent(id)}/tutor-context?subject_id=${encodeURIComponent(subjectId)}`),
+  conversionWrongAnswers: (subjectId: string) => apiV1<Array<{ id: string; title: string }>>(`/conversions/wrong-answers?subject_id=${encodeURIComponent(subjectId)}`),
+  cancelConversion: (id: string) => apiV1<ProcessingTask>(`/tasks/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  retryConversion: (id: string) => apiV1<ProcessingTask>(`/tasks/${encodeURIComponent(id)}/retry`, { method: 'POST' }),
+  mindMap: async (subjectId: string, artifactId?: string) => {
+    if (artifactId) {
+      const artifact = await apiV1<BackendArtifact>(`/artifacts/${encodeURIComponent(artifactId)}`);
+      if (artifact.subject_id !== subjectId || artifact.artifact_type !== 'mind_map') throw new ApiError('导图不属于当前科目，请切换到生成时的科目。', 404);
+      return mindMapWithLearning(artifact, subjectId);
+    }
     const artifacts = await apiV1<BackendArtifact[]>(`/artifacts?subject_id=${encodeURIComponent(subjectId)}&artifact_type=mind_map`);
-    return mindMapFromArtifact(artifacts[0] ?? null);
-  }),
-  generateMindMap: async (payload: MindMapGenerateInput) => mindMapFromArtifact(await apiV1<BackendArtifact>('/artifacts/mind-maps', {
+    return mindMapWithLearning(artifacts[0] ?? null, subjectId);
+  },
+  bindMindMapTopic: (artifactId: string, nodeId: string, topicId: string | null, artifactVersion: number, bindingVersion: number) => apiV1(`/artifacts/${encodeURIComponent(artifactId)}/nodes/${encodeURIComponent(nodeId)}/topic`, { method: 'PUT', body: JSON.stringify({ topicId, artifactVersion, bindingVersion }) }),
+  generateMindMap: async (payload: MindMapGenerateInput) => mindMapWithLearning(await apiV1<BackendArtifact>('/artifacts/mind-maps', {
     method: 'POST',
     body: JSON.stringify({ ...payload, maxDepth: payload.maxDepth ?? 3, includeMastery: payload.includeMastery ?? true, count: 24 }),
-  }, 120_000)),
+  }, 120_000), payload.subjectId),
   generateFlashcards: (subjectId: string, scope: string) => apiV1<BackendArtifact>('/artifacts/flashcards', {
     method: 'POST', body: JSON.stringify({ subjectId, scope, mode: 'knowledge', count: 10 }),
   }, 120_000),
@@ -440,26 +535,39 @@ export const api = {
     method: 'POST', body: JSON.stringify({ examId }),
   })),
   examAttempt: async (attemptId: string) => attemptFromApi(await apiV1<BackendAttempt>(`/exam-attempts/${encodeURIComponent(attemptId)}`)),
-  saveExamResponse: (attemptId: string, questionId: string, response: unknown) => apiV1(`/exam-attempts/${encodeURIComponent(attemptId)}/responses`, {
-    method: 'PATCH', body: JSON.stringify({ questionId, response }),
+  saveExamResponse: (attemptId: string, questionId: string, response: unknown, learnerConfidence?: number | null, responseSeconds?: number) => apiV1(`/exam-attempts/${encodeURIComponent(attemptId)}/responses`, {
+    method: 'PATCH', body: JSON.stringify({ questionId, response, learnerConfidence, responseSeconds }),
   }),
-  confirmExamResponse: async (attemptId: string, questionId: string, response: unknown) => gradingResultFromApi(await apiV1<Record<string, unknown>>(`/exam-attempts/${encodeURIComponent(attemptId)}/questions/${encodeURIComponent(questionId)}/confirm`, {
-    method: 'POST', body: JSON.stringify({ response }),
+  confirmExamResponse: async (attemptId: string, questionId: string, response: unknown, learnerConfidence?: number | null, responseSeconds?: number) => gradingResultFromApi(await apiV1<Record<string, unknown>>(`/exam-attempts/${encodeURIComponent(attemptId)}/questions/${encodeURIComponent(questionId)}/confirm`, {
+    method: 'POST', body: JSON.stringify({ response, learnerConfidence, responseSeconds }),
   }, 90_000)),
+  resumeQuiz: async (attemptId: string, remediationNote: string) => attemptFromApi(await apiV1<BackendAttempt>(`/exam-attempts/${encodeURIComponent(attemptId)}/resume-quiz`, { method: 'POST', body: JSON.stringify({ remediationNote }) })),
+  studySessions: (subjectId: string) => apiV1<Array<{ id: string; goal: string; status: string }>>(`/study-sessions?subject_id=${encodeURIComponent(subjectId)}`),
+  studySession: (id: string) => apiV1<import('../types').StudySession>(`/study-sessions/${encodeURIComponent(id)}`),
+  createStudySession: (subjectId: string, knowledgePointId: string, minutes: number, requestId: string, examEventId?: string, recommendationId?: string) => apiV1<import('../types').StudySession>('/study-sessions', { method: 'POST', body: JSON.stringify({ subjectId, knowledgePointId, minutes, requestId, examEventId, recommendationId }) }),
+  sessionAction: (id: string, version: number, action: string, values: Record<string, unknown> = {}) => apiV1<import('../types').StudySession>(`/study-sessions/${encodeURIComponent(id)}/actions`, { method: 'POST', body: JSON.stringify({ version, action, ...values }) }, 180_000),
+  sessionMessage: (id: string, message: string) => apiV1<{ answer: string }>(`/study-sessions/${encodeURIComponent(id)}/messages`, { method: 'POST', body: JSON.stringify({ message }) }, 120_000),
+  sessionQuizAttempt: async (id: string) => attemptFromApi(await apiV1<BackendAttempt>(`/study-sessions/${encodeURIComponent(id)}/quiz-attempt`, { method: 'POST' })),
+  flashcardQueue: (subjectId?: string, artifactId?: string, includeFuture = false) => apiV1<import('../types').FlashcardQueue>(`/flashcards/queue?${new URLSearchParams({ ...(subjectId ? { subject_id: subjectId } : {}), ...(artifactId ? { artifact_id: artifactId } : {}), include_future: String(includeFuture), limit: artifactId ? '200' : '50' })}`),
+  flashcardHistory: (artifactId: string, cardId: string) => apiV1<import('../types').FlashcardReviewLog[]>(`/flashcards/${encodeURIComponent(artifactId)}/cards/${encodeURIComponent(cardId)}/history`),
+  reviewFlashcard: (artifactId: string, cardId: string, rating: string, requestId?: string, version?: number) => apiV1<{ state: import('../types').FlashcardState; reviewId: string }>(`/artifacts/${encodeURIComponent(artifactId)}/flashcards/reviews`, { method: 'POST', body: JSON.stringify({ cardId, rating, requestId, version }) }),
   submitExamAttempt: async (attemptId: string): Promise<ExamAttemptSummary> => {
     const result = await apiV1<{ attemptId: string; score: number; maxScore: number; results: Array<Record<string, unknown>> }>(`/exam-attempts/${encodeURIComponent(attemptId)}/submit`, { method: 'POST' }, 120_000);
     return { ...result, results: result.results.map(gradingResultFromApi) };
   },
 
-  plan: (subjectId?: string) => cached<StudyPlanOverview>('plan', subjectId, async () => {
+  plan: async (subjectId?: string) => {
     const query = subjectId ? `?subject_id=${encodeURIComponent(subjectId)}` : '';
     const overview = await apiV1<Omit<StudyPlanOverview, 'tasks'> & { tasks: BackendTask[] }>(`/study-plans/overview${query}`);
     return { ...overview, tasks: overview.tasks.map(taskFromApi) };
-  }),
+  },
   previewPlan: (input: StudyPlanInput) => apiV1<StudyPlanPreview>('/study-plans/preview', { method: 'POST', body: JSON.stringify(input) }),
   generatePlan: (input: StudyPlanInput) => apiV1<ProcessingTask>('/study-plans/generations', { method: 'POST', body: JSON.stringify(input) }),
   planGeneration: (id: string) => apiV1<ProcessingTask>(`/study-plans/generations/${encodeURIComponent(id)}`),
   updateTask: async (taskId: string, completed: boolean) => taskFromApi(await apiV1<BackendTask>(`/study-plans/tasks/${encodeURIComponent(taskId)}`, { method: 'PATCH', body: JSON.stringify({ status: completed ? 'completed' : 'pending' }) })),
+  lockTask: async (taskId: string, locked: boolean) => taskFromApi(await apiV1<BackendTask>(`/study-plans/tasks/${encodeURIComponent(taskId)}`, { method: 'PATCH', body: JSON.stringify({ locked }) })),
+  replan: (planId: string) => apiV1(`/study-plans/${encodeURIComponent(planId)}/replan`, { method: 'POST' }),
+  planEvents: (planId: string) => apiV1<Array<{ id: string; reason: string; event_type: string; created_at: string }>>(`/study-plans/${encodeURIComponent(planId)}/events`),
 
   streamDayendRun,
   dayendRun: (threadId: string) => apiV3<{ threadId: string; status: string; state?: Record<string, unknown>; next?: string[] }>(`/runs/${encodeURIComponent(threadId)}`),

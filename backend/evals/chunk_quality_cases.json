@@ -1,0 +1,10 @@
+[
+  {"id":"definition-zh","query":"线性无关定义","requiredPhrases":["线性无关","系数全为零"],"blocks":[{"type":"heading","text":"向量组"},{"type":"paragraph","text":"线性无关指向量的线性组合等于零时，系数全为零。"}]},
+  {"id":"definition-en","query":"eigenvalue definition","requiredPhrases":["eigenvalue","Av = λv"],"blocks":[{"type":"paragraph","text":"An eigenvalue λ satisfies Av = λv for a nonzero vector v. This is a complete definition."}]},
+  {"id":"formula-context","query":"计算特征值","requiredPhrases":["det(A - λI) = 0"],"blocks":[{"type":"heading","text":"特征值"},{"type":"paragraph","text":"计算特征值时，先构造特征多项式。"},{"type":"formula","text":"det(A - λI) = 0"},{"type":"paragraph","text":"方程的根就是特征值。"}]},
+  {"id":"table-rows","query":"第二季度销量","requiredPhrases":["第二季度","20"],"blocks":[{"type":"table","text":"季度 | 销量\n第一季度 | 10\n第二季度 | 20\n第三季度 | 30","rows":[["季度","销量"],["第一季度","10"],["第二季度","20"],["第三季度","30"]]}]},
+  {"id":"sentence-boundary","query":"完整定义","requiredPhrases":["完整定义从这里开始","定义至此完整结束"],"blocks":[{"type":"paragraph","text":"背景。","repeat":266},{"type":"paragraph","prefix":"完整定义从这里开始：","text":"一个概念的适用条件应与推论一起保留，","repeat":38,"suffix":"定义至此完整结束。","joinPrevious":true}]},
+  {"id":"multiple-headings","query":"矩阵秩定义","requiredPhrases":["矩阵秩","最大线性无关"],"blocks":[{"type":"heading","text":"行列式"},{"type":"paragraph","text":"行列式是方阵的一个标量属性。"},{"type":"heading","text":"矩阵秩"},{"type":"paragraph","text":"矩阵秩是最大线性无关的行或列的数量。"}]},
+  {"id":"decimal-en","query":"standard error value","requiredPhrases":["standard error","3.14"],"blocks":[{"type":"paragraph","text":"The standard error is 3.14 in this example. Decimal notation stays intact."}]},
+  {"id":"opaque-html-table","query":"季度销量","requiredPhrases":["季度","20"],"blocks":[{"type":"table","text":"<table><tr><td>季度</td><td>销量</td></tr><tr><td>Q2</td><td>20</td></tr></table>"}]}
+]

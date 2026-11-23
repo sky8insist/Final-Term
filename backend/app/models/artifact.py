@@ -2,7 +2,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-ArtifactType = Literal["outline", "mind_map", "flashcards", "formula_sheet", "glossary", "comparison", "cheat_sheet"]
+ArtifactType = Literal["outline", "mind_map", "flashcards", "formula_sheet", "glossary", "comparison", "cheat_sheet", "notes"]
 
 
 class ArtifactGenerateRequest(BaseModel):
@@ -44,3 +44,4 @@ class MindMapGenerateRequest(BaseModel):
 class ArtifactUpdateRequest(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=300)
     content: dict | None = None
+    version: int | None = Field(default=None, ge=1)

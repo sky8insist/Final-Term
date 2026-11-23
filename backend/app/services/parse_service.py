@@ -2,6 +2,7 @@ from io import BytesIO
 from hashlib import sha256
 from pathlib import Path
 import re
+import math
 
 from docx import Document
 from docx.oxml.table import CT_Tbl
@@ -10,6 +11,7 @@ from docx.table import Table
 from docx.text.paragraph import Paragraph
 from pypdf import PdfReader
 from charset_normalizer import from_bytes
+from app.services.document_structure_service import reported_confidence
 
 PDF_CONTENT_TYPE = "application/pdf"
 TXT_CONTENT_TYPE = "text/plain"
@@ -17,7 +19,7 @@ DOCX_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessin
 PPTX_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
 XLSX_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 IMAGE_CONTENT_TYPES = {"image/png", "image/jpeg", "image/webp", "image/gif", "image/bmp", "image/jp2"}
-AUDIO_CONTENT_TYPES = {"audio/mpeg", "audio/wav", "audio/x-wav", "audio/mp4", "audio/x-m4a"}
+AUDIO_CONTENT_TYPES = {"audio/mpeg", "audio/wav", "audio/x-wav", "audio/mp4", "audio/x-m4a", "audio/webm"}
 
 
 class DocumentParseError(ValueError):
@@ -29,7 +31,7 @@ PARSER_VERSION = "1.0.0"
 
 def _block(*, block_type: str, text: str, sequence: int, parser: str,
            page_number: int | None = None, structured_data: dict | None = None,
-           confidence: float = 1.0, metadata: dict | None = None,
+           confidence: float | None = None, metadata: dict | None = None,
            bounding_box: dict | None = None) -> dict:
     cleaned = _clean_text(text)
     identity = f"{parser}:{page_number}:{sequence}:{block_type}:{cleaned}".encode("utf-8")
@@ -211,9 +213,9 @@ def parse_document_blocks(
                         bounding_box={"x0": 0, "y0": 0, "x1": width, "y1": height,
                                       "pageWidth": width, "pageHeight": height},
                         structured_data={"ocrText": result.get("ocrText", ""), "summary": result.get("summary", ""), **detail},
-                        confidence=result.get("confidence", 0.0),
+                        confidence=reported_confidence(result.get("confidence")),
                         metadata={"pageKind": "mixed" if kept_text else "scanned",
-                                  "needsReview": result.get("confidence", 0.0) < 0.6},
+                                  "needsReview": (reported_confidence(result.get("confidence")) or 0) < 0.6},
                     ))
             pdf.close()
             blocks.sort(key=lambda block: (block.get("page_number") or 0, block["sequence_index"]))
@@ -256,7 +258,7 @@ def parse_document_blocks(
                         blocks.append(_block(
                             block_type=kind, text=image_text, sequence=len(blocks), parser="python-docx+vision-api",
                             structured_data={"ocrText": image_result.get("ocrText", ""), **detail},
-                            confidence=image_result.get("confidence", 0), metadata={"imageIndex": image_index},
+                            confidence=reported_confidence(image_result.get("confidence")), metadata={"imageIndex": image_index},
                         ))
                 elif isinstance(child, CT_Tbl):
                     table = Table(child, document)
@@ -304,7 +306,7 @@ def parse_document_blocks(
         blocks.append(_block(
             block_type=kind, text=text, sequence=0, parser="vision-api",
             structured_data={"ocrText": result.get("ocrText", ""), "summary": result.get("summary", ""), **detail},
-            confidence=result.get("confidence", 0.0), metadata={"needsReview": result.get("confidence", 0.0) < 0.6},
+            confidence=reported_confidence(result.get("confidence")), metadata={"needsReview": (reported_confidence(result.get("confidence")) or 0) < 0.6},
         ))
     elif content_type in AUDIO_CONTENT_TYPES or suffix in {".mp3", ".wav", ".m4a"}:
         from app.services.multimodal_service import transcribe_audio
@@ -380,28 +382,40 @@ def parse_native_document_blocks(
     elif content_type == DOCX_CONTENT_TYPE or suffix == ".docx":
         try:
             document = Document(BytesIO(data))
-            for paragraph in document.paragraphs:
-                text = _clean_text(paragraph.text)
-                if text:
-                    style = (paragraph.style.name if paragraph.style else "").lower()
-                    blocks.append(_block(
-                        block_type="heading" if style.startswith(("heading", "标题")) else "paragraph",
-                        text=text, sequence=len(blocks), parser="python-docx-native-fallback",
-                        metadata={"fallbackParser": True, "ocrUsed": False},
-                    ))
-            for table_index, table in enumerate(document.tables):
-                rows = [[_clean_text(cell.text) for cell in row.cells] for row in table.rows]
-                if rows:
-                    markdown = "\n".join(
-                        "| " + " | ".join(row) + " |"
-                        for row in [rows[0], ["---"] * len(rows[0]), *rows[1:]]
-                    )
-                    blocks.append(_block(
-                        block_type="table", text=markdown, sequence=len(blocks),
-                        parser="python-docx-native-fallback",
-                        structured_data={"rows": rows, "tableIndex": table_index},
-                        metadata={"fallbackParser": True, "ocrUsed": False},
-                    ))
+            table_index = 0
+            for child in document.element.body.iterchildren():
+                if isinstance(child, CT_P):
+                    paragraph = Paragraph(child, document)
+                    text = _clean_text(paragraph.text)
+                    if text:
+                        style = (paragraph.style.name if paragraph.style else "").lower()
+                        blocks.append(_block(
+                            block_type="heading" if style.startswith(("heading", "标题")) else "paragraph",
+                            text=text, sequence=len(blocks), parser="python-docx-native-fallback",
+                            metadata={"fallbackParser": True, "ocrUsed": False,
+                                      "style": paragraph.style.name if paragraph.style else None},
+                        ))
+                elif isinstance(child, CT_Tbl):
+                    table = Table(child, document)
+                    rows = [[_clean_text(cell.text) for cell in row.cells] for row in table.rows]
+                    if rows:
+                        markdown = "\n".join(
+                            "| " + " | ".join(row) + " |"
+                            for row in [rows[0], ["---"] * len(rows[0]), *rows[1:]]
+                        )
+                        blocks.append(_block(
+                            block_type="table", text=markdown, sequence=len(blocks),
+                            parser="python-docx-native-fallback",
+                            structured_data={"rows": rows, "tableIndex": table_index},
+                            metadata={"fallbackParser": True, "ocrUsed": False},
+                        ))
+                    table_index += 1
+            # Preserve identities issued by the previous paragraph-then-table
+            # fallback, while fixing the sequence used for reading and grouping.
+            legacy_order = [item for item in blocks if item['block_type'] != 'table'] + [item for item in blocks if item['block_type'] == 'table']
+            for legacy_index, item in enumerate(legacy_order):
+                identity = f"{item['parser_name']}:{item['page_number']}:{legacy_index}:{item['block_type']}:{item['content_text']}"
+                item['source_hash'] = sha256(identity.encode('utf-8')).hexdigest()
         except Exception as exc:
             raise DocumentParseError("DOCX native text could not be extracted") from exc
     elif content_type == PPTX_CONTENT_TYPE or suffix == ".pptx":
@@ -458,6 +472,7 @@ def parse_native_document_blocks(
 def build_audio_blocks(
     result: dict, *, audio_time_offset: float = 0.0,
     analyze_audio_transcript: bool = True, audio_segment_index: int | None = None,
+    audio_segment_duration: float | None = None,
 ) -> list[dict]:
     from app.services.multimodal_service import analyze_transcript
 
@@ -473,13 +488,23 @@ def build_audio_blocks(
             if not text:
                 continue
             block = _block(block_type="audio", text=text, sequence=len(blocks), parser="transcription-api")
-            local_start = max(float(segment.get("start", 0)), 0.0)
-            local_end = max(float(segment.get("end", local_start)), local_start)
+            precise=segment.get('start') is not None and segment.get('end') is not None
+            try:
+                local_start=float(segment['start']) if precise else 0.0
+                local_end=float(segment['end']) if precise else audio_segment_duration
+                if not math.isfinite(local_start) or local_start<0 or (audio_segment_duration is not None and local_start>audio_segment_duration) or (local_end is not None and (not math.isfinite(local_end) or local_end<local_start or (audio_segment_duration is not None and local_end>audio_segment_duration+0.5))):
+                    raise ValueError('Invalid transcript time')
+                if local_end is not None and audio_segment_duration is not None:
+                    local_end=min(local_end,audio_segment_duration)
+            except (ValueError,TypeError) as exc:raise DocumentParseError('Transcription timestamp is outside the audio segment') from exc
             block["start_time"] = audio_time_offset + local_start
-            block["end_time"] = audio_time_offset + local_end
+            block["end_time"] = audio_time_offset + local_end if local_end is not None else None
+            confidence=segment.get('confidence')
+            block['confidence']=reported_confidence(confidence)
             block["structured_data"] = {
                 "language": result.get("language"), "speaker": segment.get("speaker"),
                 "audioSegmentIndex": audio_segment_index,
+                'timestampPrecision':'asr_segment' if precise else 'segment_window',
             }
             if not blocks:
                 block["structured_data"]["analysis"] = analysis
@@ -487,13 +512,17 @@ def build_audio_blocks(
     elif result.get("text"):
         block = _block(block_type="audio", text=result["text"], sequence=0, parser="transcription-api")
         block["start_time"] = audio_time_offset
-        block["end_time"] = (
-            audio_time_offset + float(result["duration"])
-            if result.get("duration") is not None else None
-        )
+        duration=audio_segment_duration if audio_segment_duration is not None else result.get('duration')
+        if duration is not None and (not math.isfinite(float(duration)) or float(duration)<0):
+            raise DocumentParseError('Invalid transcript duration')
+        block['end_time']=audio_time_offset+float(duration) if duration is not None else None
+        block['confidence']=None
         block["structured_data"] = {
             "language": result.get("language"), "analysis": analysis,
             "audioSegmentIndex": audio_segment_index,
+            'timestampPrecision':'segment_window',
         }
         blocks.append(block)
+    for block in blocks:
+        block['source_hash']=sha256((block['source_hash']+f":{audio_segment_index}:{block['start_time']}:{block['end_time']}").encode()).hexdigest()
     return blocks

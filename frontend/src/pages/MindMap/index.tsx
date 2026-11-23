@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, BrainCircuit, CheckCircle2, LoaderCircle } from 'lucide-react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { ApiError, api } from '../../api/client';
 import { useAppStore } from '../../stores/useAppStore';
-import type { MindMapData, MindMapMode, MindMapNode } from '../../types';
+import type { MindMapData, MindMapMode } from '../../types';
 import { MindMapCanvas } from './components/MindMapCanvas';
 import { MindMapToolbar } from './components/MindMapToolbar';
 import { NodeDetailDrawer } from './components/NodeDetailDrawer';
@@ -13,27 +13,58 @@ type ViewMode = 'knowledge' | 'exam';
 
 export default function MindMap() {
   const subject = useAppStore((state) => state.currentSubject)!;
-  const navigate = useNavigate();
+  return <MindMapWorkspace key={subject.id} />;
+}
+
+function MindMapWorkspace() {
+  const subject = useAppStore((state) => state.currentSubject)!;
   const [searchParams] = useSearchParams();
   const [data, setData] = useState<MindMapData | null>(null);
   const [mode, setMode] = useState<MindMapMode>('question');
   const [query, setQuery] = useState(searchParams.get('topic') ?? '');
   const [viewMode, setViewMode] = useState<ViewMode>('knowledge');
-  const [selectedNode, setSelectedNode] = useState<MindMapNode | null>(null);
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const selectedNode = data?.nodes.find(node => node.id === selectedNodeId);
+  const request = useRef(0);
+  const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadingStage, setLoadingStage] = useState(0);
   const [error, setError] = useState('');
-  const [creatingFlashcards, setCreatingFlashcards] = useState(false);
-  const [flashcardMessage, setFlashcardMessage] = useState('');
 
   useEffect(() => {
+    const sequence = ++request.current;
     setLoading(true);
+    setRefreshing(false);
+    setSelectedNodeId(null);
     setError('');
-    api.mindMap(subject.id)
-      .then(setData)
-      .catch((reason) => setError(reason instanceof Error ? reason.message : '暂时无法读取知识地图。'))
-      .finally(() => setLoading(false));
-  }, [subject.id]);
+    api.mindMap(subject.id, searchParams.get('artifactId') || undefined)
+      .then(value => {
+        if (sequence !== request.current) return;
+        setData(value);
+        setSelectedNodeId(searchParams.get('nodeId'));
+      })
+      .catch((reason) => { if (sequence === request.current) setError(reason instanceof Error ? reason.message : '暂时无法读取知识地图。'); })
+      .finally(() => { if (sequence === request.current) setLoading(false); });
+    return () => { request.current++; };
+  }, [subject.id, searchParams]);
+
+  const refresh = useCallback(async () => {
+    if (!data?.artifactId) return;
+    const sequence = ++request.current;
+    setRefreshing(true); setError('');
+    try {
+      const value = await api.mindMap(subject.id, data.artifactId);
+      if (sequence === request.current) setData(value);
+    } catch (reason) {
+      if (sequence === request.current) { setSelectedNodeId(null); setError(reason instanceof Error ? reason.message : '刷新失败，请重试。'); }
+    } finally { if (sequence === request.current) setRefreshing(false); }
+  }, [subject.id, data?.artifactId]);
+
+  useEffect(() => {
+    const onFocus = () => { if (!loading && !refreshing) void refresh(); };
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [refresh, loading, refreshing]);
 
   useEffect(() => {
     if (!loading) { setLoadingStage(0); return undefined; }
@@ -43,14 +74,17 @@ export default function MindMap() {
 
   async function generate() {
     if (mode !== 'chapter' && !query.trim()) return;
-    setLoading(true); setLoadingStage(0); setError(''); setSelectedNode(null);
+    const sequence = ++request.current;
+    setLoading(true); setRefreshing(false); setLoadingStage(0); setError(''); setSelectedNodeId(null);
     try {
-      setData(await api.generateMindMap({ subjectId: subject.id, mode, query: query.trim() || undefined }));
+      const value = await api.generateMindMap({ subjectId: subject.id, mode, query: query.trim() || undefined });
+      if (sequence === request.current) setData(value);
     } catch (reason) {
+      if (sequence !== request.current) return;
       if (reason instanceof ApiError && reason.status === 422) setError(reason.message);
       else if (reason instanceof ApiError && reason.status === 408) setError('生成时间过长，已停止等待。请缩小问题或章节范围后重试。');
       else setError(reason instanceof Error ? reason.message : '知识地图生成失败，请稍后重试。');
-    } finally { setLoading(false); }
+    } finally { if (sequence === request.current) setLoading(false); }
   }
 
   const displayData = useMemo(() => {
@@ -66,18 +100,13 @@ export default function MindMap() {
     return { ...data, nodes: data.nodes.filter((node) => keep.has(node.id)), edges: data.edges.filter((edge) => keep.has(edge.source) && keep.has(edge.target)) };
   }, [data, viewMode]);
 
-  async function createFlashcards(node: MindMapNode) {
-    setCreatingFlashcards(true); setFlashcardMessage('');
-    try { await api.generateFlashcards(subject.id, node.label); setFlashcardMessage('闪卡已生成并保存。'); }
-    catch (reason) { setFlashcardMessage(reason instanceof Error ? reason.message : '闪卡生成失败。'); }
-    finally { setCreatingFlashcards(false); }
-  }
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-slate-50">
-      <header className="flex items-center justify-between border-b bg-white px-5 py-3">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b bg-white px-5 py-3">
         <div className="flex items-center gap-3"><div className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-blue-600 to-violet-600 text-white"><BrainCircuit size={21} /></div><div><h1 className="font-bold text-slate-900">AI 知识地图</h1><p className="text-xs text-slate-500">{subject.name} · 围绕学习问题建立知识结构</p></div></div>
         <div className="flex rounded-xl border bg-slate-50 p-1">
+          <button type="button" disabled={loading || refreshing || !data?.artifactId} onClick={() => void refresh()} className="min-h-11 rounded-lg px-3 text-xs font-semibold text-blue-700 disabled:opacity-50">{refreshing ? '正在刷新…' : '刷新学习状态'}</button>
           <button type="button" onClick={() => setViewMode('knowledge')} className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${viewMode === 'knowledge' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500'}`}>知识地图</button>
           <button type="button" onClick={() => setViewMode('exam')} className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${viewMode === 'exam' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500'}`}>考试重点</button>
         </div>
@@ -89,9 +118,9 @@ export default function MindMap() {
         {!loading && !error && !data?.nodes.length && <div className="grid h-full place-items-center p-8"><div className="max-w-md text-center"><BrainCircuit className="mx-auto text-slate-300" size={48} /><h2 className="mt-4 text-lg font-bold">从一个学习问题开始</h2><p className="mt-2 text-sm leading-6 text-slate-500">输入问题、知识点或章节，AI 会基于课程资料建立概念层级和关系。</p></div></div>}
         {!loading && !error && displayData?.nodes.length ? <div className="h-full">
           <div className="pointer-events-none absolute left-5 top-5 z-10 max-w-lg rounded-2xl border border-white/80 bg-white/90 p-4 shadow-sm backdrop-blur"><div className="text-xs font-semibold uppercase tracking-wider text-blue-600">Focus Question</div><div className="mt-1 font-semibold">{data?.focusQuestion || data?.title}</div>{data?.summary && <p className="mt-2 text-xs leading-5 text-slate-500">{data.summary}</p>}{data?.evidenceInsufficient && <div className="mt-2 flex items-center gap-1 text-xs text-amber-700"><AlertTriangle size={13} />课程证据有限，地图仅保留有依据的内容</div>}{data?.evaluation && <div className="mt-2 flex items-center gap-1 text-xs text-emerald-700"><CheckCircle2 size={13} />引用完整度 {Math.round(data.evaluation.grounding * 100)}%</div>}</div>
-          <MindMapCanvas key={`${data?.artifactId}-${viewMode}`} data={displayData} onSelect={setSelectedNode} />
+          <MindMapCanvas key={`${data?.artifactId}-${viewMode}`} data={displayData} onSelect={node => setSelectedNodeId(node.id)} />
         </div> : null}
-        {selectedNode && data && <NodeDetailDrawer node={selectedNode} data={data} creatingFlashcards={creatingFlashcards} flashcardMessage={flashcardMessage} onClose={() => { setSelectedNode(null); setFlashcardMessage(''); }} onCreateFlashcards={(node) => void createFlashcards(node)} onCreateExam={(node) => navigate(`/exams?topic=${encodeURIComponent(node.label)}`)} />}
+        {selectedNode && data && <NodeDetailDrawer key={`${data.artifactId}:${selectedNode.id}:${selectedNode.learning?.bindingVersion}`} node={selectedNode} data={data} onSaved={refresh} onClose={() => setSelectedNodeId(null)} />}
       </main>
     </div>
   );

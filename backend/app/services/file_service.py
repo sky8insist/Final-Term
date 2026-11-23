@@ -23,6 +23,7 @@ ALLOWED_CONTENT_TYPES = {
     "audio/x-wav",
     "audio/mp4",
     "audio/x-m4a",
+    "audio/webm",
 }
 EXTENSION_CONTENT_TYPES = {
     ".pdf": "application/pdf", ".txt": "text/plain",
@@ -35,11 +36,12 @@ EXTENSION_CONTENT_TYPES = {
     ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp",
     ".gif": "image/gif", ".bmp": "image/bmp", ".jp2": "image/jp2",
     ".mp3": "audio/mpeg", ".wav": "audio/wav", ".m4a": "audio/x-m4a",
+    '.webm':'audio/webm',
 }
 
 
 def normalized_upload_content_type(file: UploadFile) -> str:
-    declared = (file.content_type or "").lower()
+    declared = (file.content_type or "").split(';',1)[0].strip().lower()
     if declared in ALLOWED_CONTENT_TYPES:
         return declared
     filename = (file.filename or "").lower()
@@ -116,6 +118,8 @@ def validate_upload_file(file: UploadFile) -> int:
         valid = len(head) >= 12 and head[:4] == b"RIFF" and head[8:12] == b"WAVE"
     elif content_type == "audio/mpeg":
         valid = head.startswith(b"ID3") or (len(head) >= 2 and head[0] == 0xFF and head[1] & 0xE0 == 0xE0)
+    elif content_type=='audio/webm':
+        valid=head.startswith(b'\x1a\x45\xdf\xa3')
     elif content_type in {"audio/mp4", "audio/x-m4a"}:
         valid = len(head) >= 12 and head[4:8] == b"ftyp"
     elif content_type == "text/plain":

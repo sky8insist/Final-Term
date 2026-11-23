@@ -1,6 +1,8 @@
+from app.services.owner_io_service import serialized_owner
 from fastapi import HTTPException, status
 
 from app.db.supabase_client import get_supabase_client
+from app.config.settings import settings
 
 
 def _to_subject(row: dict) -> dict:
@@ -137,6 +139,7 @@ def update_subject(
     return _to_subject(response.data[0])
 
 
+@serialized_owner
 def delete_subject(user_id: str, subject_id: str) -> None:
     get_subject(user_id=user_id, subject_id=subject_id)
     client = get_supabase_client()
@@ -158,8 +161,12 @@ def delete_subject(user_id: str, subject_id: str) -> None:
     except LightRAGServiceError as exc:
         raise HTTPException(status_code=502, detail="Subject LightRAG data could not be deleted") from exc
     assets = client.table("material_assets").select("bucket,object_path").eq("user_id", user_id).eq("subject_id", subject_id).execute().data
+    assets += client.table('material_upload_intents').select('bucket,object_path').eq('user_id', user_id).eq('subject_id', subject_id).execute().data
+    if any(row['bucket'] != settings.material_storage_bucket or not row['object_path'].startswith(user_id + '/')
+           or any(part in ('', '.', '..') for part in row['object_path'].split('/')) for row in assets):
+        raise HTTPException(502, 'Subject file ownership could not be verified')
     for bucket in {row["bucket"] for row in assets}:
-        paths = [row["object_path"] for row in assets if row["bucket"] == bucket]
+        paths = sorted({row["object_path"] for row in assets if row["bucket"] == bucket})
         if paths:
             try:
                 client.storage.from_(bucket).remove(paths)

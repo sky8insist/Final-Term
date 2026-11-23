@@ -44,11 +44,11 @@ def test_sensitive_memory_requires_approval(monkeypatch):
     monkeypatch.setattr(hermes_memory_service, "get_supabase_client", lambda: Query())
     result = hermes_memory_service.request_write(
         user_id="user", action="add", target="user_profile", subject_id=None,
-        old_text=None, content="身份证 11010519491231002X", confidence=1,
+        old_text=None, content="偏好通过邮件 learner@example.com 接收解释", confidence=1,
         importance=50, reason="test", require_approval=None,
     )
     assert result["status"] == "pending"
-    assert inserted["content"].startswith("身份证")
+    assert inserted["content"].startswith("偏好")
 
 
 def test_disabled_memory_rejects_new_automatic_writes(monkeypatch):

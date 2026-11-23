@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "startedAt": "2026-10-27T04:56:14.888865+00:00",
+  "scope": "learning-metrics",
+  "mode": "real-headless-browser",
+  "auth": "normal local Supabase password sign-in and backend JWT verification; no overrides",
+  "data": "committed disposable synthetic fixtures; not learning efficacy",
+  "cases": [
+    {
+      "name": "protected redirect and real password/JWT login",
+      "status": "passed"
+    },
+    {
+      "name": "populated metrics / denominator / default window",
+      "status": "passed"
+    },
+    {
+      "name": "slow old window response cannot overwrite new selection",
+      "status": "passed"
+    },
+    {
+      "name": "real history/event pagination and keyboard detail disclosure",
+      "status": "passed"
+    },
+    {
+      "name": "detail URL survives browser reload",
+      "status": "passed"
+    },
+    {
+      "name": "closing detail restores keyboard focus to originating row",
+      "status": "passed"
+    },
+    {
+      "name": "explicit 503 fault: independent sections survive and retry recovers",
+      "status": "passed"
+    },
+    {
+      "name": "supported desktop widths 1365 and 1024 render without document overflow",
+      "status": "passed"
+    },
+    {
+      "name": "same-browser logout/login isolates empty second account",
+      "status": "passed"
+    },
+    {
+      "name": "real JWT second account cannot read first account audit",
+      "status": "passed"
+    },
+    {
+      "name": "real auth traffic and browser runtime",
+      "status": "passed"
+    }
+  ],
+  "screenshots": [
+    "desktop-1365.png",
+    "audit-keyboard.png",
+    "desktop-1024.png",
+    "empty-account.png"
+  ],
+  "limitations": [
+    "one local Windows browser engine; not human or multi-device UAT",
+    "fault cases simulate network errors/delay only",
+    "no model/worker/long-term or production acceptance"
+  ],
+  "browser": "chrome",
+  "browserVersion": "156.0.8078.47",
+  "playwrightVersion": "1.64.1",
+  "viewports": [
+    "1365x900",
+    "1024x768"
+  ],
+  "authObserved": true,
+  "pageErrorCount": 0,
+  "cleanup": "exact generated accounts, cascades, own Redis snapshots and isolated processes removed",
+  "finishedAt": "2026-10-27T04:56:28.171771+00:00",
+  "status": "passed"
+}

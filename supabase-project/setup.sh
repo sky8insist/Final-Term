@@ -360,7 +360,7 @@ if [ "$WITH_AWS" = "1" ]; then
 fi
 
 # Idempotent re-run: if CWD is already a set-up project, skip bootstrap.
-# A clone has docker-compose.yml + utils/ but only .env.example;
+# A clone has docker-compose.yml + utils/ but only config.env.template;
 # a set-up project also has a real .env.
 if [ -f .env ] && [ -f docker-compose.yml ] && [ -d utils ]; then
     log "Already in a Supabase project directory; skipping bootstrap."
@@ -377,8 +377,8 @@ fi
 log "Creating project at $target"
 mkdir -p "$target"
 cp -rf "$SRC_DIR/." "$target/"
-if [ -f "$target/.env.example" ] && [ ! -f "$target/.env" ]; then
-    cp "$target/.env.example" "$target/.env"
+if [ -f "$target/config.env.template" ] && [ ! -f "$target/.env" ]; then
+    cp "$target/config.env.template" "$target/.env"
 fi
 
 cd "$target"

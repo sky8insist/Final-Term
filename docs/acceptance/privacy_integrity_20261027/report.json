@@ -1,0 +1,59 @@
+{
+  "startedAt": "2026-10-27T09:18:36.529750+00:00",
+  "mode": "real local HTTP/password/JWT; no overrides",
+  "data": "disposable synthetic fixtures",
+  "checks": [
+    {
+      "name": "deferred foreign keys still reject deletion of a referenced question",
+      "status": "passed"
+    },
+    {
+      "name": "real Auth admin cascade with topic, memory and exam fixtures no longer returns 500",
+      "status": "passed"
+    },
+    {
+      "name": "injected SQL failure rolls back subjects, exams and global cleanup atomically",
+      "status": "passed"
+    },
+    {
+      "name": "anonymous rejection and destructive confirmation guards over real HTTP",
+      "status": "passed"
+    },
+    {
+      "name": "uncapped consistent JSON export: 1005 events, legacy records, profile and owned children; no-store",
+      "status": "passed"
+    },
+    {
+      "name": "two normally authenticated accounts export only their own data",
+      "status": "passed"
+    },
+    {
+      "name": "product data deletion removes learning/audit/legacy rows and stored audio/transcript; identity preserved; retry succeeds",
+      "status": "passed"
+    },
+    {
+      "name": "complete product account deletion, old JWT rejected, login rejected and other account unchanged",
+      "status": "passed"
+    },
+    {
+      "name": "second populated account also deleted via normal product API",
+      "status": "passed"
+    },
+    {
+      "name": "privacy RPCs remain private to service_role",
+      "status": "passed"
+    }
+  ],
+  "cleanup": true,
+  "limitations": [
+    "no browser UI or production acceptance",
+    "no live LightRAG/model call",
+    "no concurrent upload/worker deletion fence",
+    "JSON export includes metadata, not original binary files",
+    "Auth/operational service logs and backups retain their own policies"
+  ],
+  "exportedTables": 79,
+  "exportedEvents": 1005,
+  "finishedAt": "2026-10-27T09:18:48.083221+00:00",
+  "success": true
+}

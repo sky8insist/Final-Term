@@ -1,0 +1,7 @@
+{
+  "minimumCaseCount": 2,
+  "candidateMinimums": {"retrieval.isolation":1.0,"grounding.decisionAccuracy":1.0,"plan.topicCoverage":0.5},
+  "candidateMaximums": {"grounding.falseReject":0.0,"grounding.falseAccept":0.0,"grounding.unsupportedAnswerAccept":0.0,"plan.forbiddenTaskRate":0.0,"plan.capacityViolationRate":0.0},
+  "minimumImprovements": {},
+  "minimumImprovementCI95LowerBounds": {}
+}

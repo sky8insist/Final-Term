@@ -1,6 +1,5 @@
 .env
 .env.*
-!.env.example
 *.pem
 *.key
 *.p12
@@ -24,3 +23,8 @@ pytest-cache-files-*/
 .npm-cache/
 .DS_Store
 Thumbs.db
+
+.pytest_tmp*/
+*.sqlite
+*.sqlite-*
+*.db

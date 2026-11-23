@@ -8,6 +8,10 @@ sys.path.insert(0, str(ROOT))
 
 from app.agents.router_agent import _fallback
 from app.services.quality_eval_service import evaluate_retrieval_cases, validate_generation_case
+from app.services.recommendation_eval_service import evaluate_recommendation_cases
+from app.services.grounding_eval_service import evaluate_grounding_cases
+from app.services.paired_quality_service import compare, check_gate
+from app.services.quality_experiment_fixture import build_fixture_runs
 
 
 def main() -> int:
@@ -42,6 +46,15 @@ def main() -> int:
             f"{case.get('capability')}: {failure}"
             for failure in validate_generation_case(case)
         )
+    recommendation_report = evaluate_recommendation_cases(json.loads(
+        (ROOT / "evals" / "recommendation_cases.json").read_text(encoding="utf-8")))
+    for case in recommendation_report["cases"]:
+        failures.extend(f"recommendation {case['caseId']}: {issue}" for issue in case["failures"])
+    grounding_report = evaluate_grounding_cases(json.loads((ROOT / 'evals/grounding_cases.json').read_text(encoding='utf-8')))
+    failures.extend(f'grounding: {case}' for case in grounding_report['failures'])
+    paired_report = compare(*build_fixture_runs(ROOT), bootstrap_samples=100)
+    paired_failures = check_gate(paired_report, json.loads((ROOT/'evals/paired_quality_gate.json').read_text(encoding='utf-8')))
+    failures.extend(f'paired synthetic contract: {failure}' for failure in paired_failures)
     if failures:
         print("QUALITY GATE FAILED")
         for failure in failures:
@@ -54,7 +67,8 @@ def main() -> int:
     print(
         f"QUALITY GATE PASSED: {len(intent_cases)} intent cases, "
         f"{len(retrieval_cases)} retrieval cases, {len(generation_cases)} generation cases; "
-        f"{metric_summary}"
+        f"{metric_summary}; recommendation={recommendation_report['metrics']}; grounding={grounding_report}; "
+        f"pairedSyntheticCases={paired_report['caseCount']}"
     )
     return 0
 

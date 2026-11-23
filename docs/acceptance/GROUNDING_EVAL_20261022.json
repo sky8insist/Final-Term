@@ -1,0 +1,10 @@
+{
+  "datasetKind": "labelled-rule-regression",
+  "evidenceCaseCount": 8,
+  "answerCaseCount": 10,
+  "insufficientRejectionRate": 1.0,
+  "sufficientAcceptanceRate": 1.0,
+  "unsupportedAnswerRejectionRate": 1.0,
+  "failures": [],
+  "localAuditPersistence": "passed; fixtures rolled back"
+}

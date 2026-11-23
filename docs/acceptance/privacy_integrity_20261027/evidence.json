@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "scope": "local privacy integrity; no browser/production/model acceptance",
+  "backendRegression": {
+    "passed": 899,
+    "warnings": 3
+  },
+  "files": [
+    {
+      "path": "backend/app/api/deps.py",
+      "sha256": "a6d8d18cfa56e4e6d7a15b4bcd7969df00c85a02ff320f6cc3b9ec819f25cd4a"
+    },
+    {
+      "path": "backend/app/api/privacy.py",
+      "sha256": "90ca08fa86585723844ff38fa4ae00c4d8f7136d5074b9b2543d539cfdbfee31"
+    },
+    {
+      "path": "backend/app/services/privacy_service.py",
+      "sha256": "5b6539bc9642876c10277ec2b6dee573cb42acaf6fd4d1efcb4c2ffc95136a70"
+    },
+    {
+      "path": "backend/migrations/058_privacy_integrity.sql",
+      "sha256": "6761d41cf7271070714dd4417e0c14f2d2c359d1ce04ddc789131080186ed8df"
+    },
+    {
+      "path": "backend/scripts/verify_privacy_integrity.py",
+      "sha256": "881eb4f02af4e159bda85e7ab7afe5837b1df87bd71394958f7583377e6822db"
+    },
+    {
+      "path": "backend/tests/test_privacy_integrity.py",
+      "sha256": "c3f29dacdba52933ae38e4057a9c28937d096d3b972eb72315796bd5a3d9413a"
+    },
+    {
+      "path": "backend/tests/test_calendar.py",
+      "sha256": "85dd489366955f20cf45639fab738a6e5c5df88d502c06d952b77cb27ae4820b"
+    },
+    {
+      "path": "docs/acceptance/PRIVACY_INTEGRITY_20261027.md",
+      "sha256": "38fc5efbf166b5d1453580e1f7980d3527212c63ab2edd61fe675a9c922cd066"
+    },
+    {
+      "path": "docs/acceptance/privacy_integrity_20261027/report.json",
+      "sha256": "94cf435a6e3cbe24d2af86c55507b4fa828f7e9cf4300d4e6e1761feb71e67da"
+    },
+    {
+      "path": "docs/acceptance/privacy_integrity_20261027/second-report.json",
+      "sha256": "12acd850df5cbc90231f40e49facb5003483b843c19cf8752ad4d84dc557a0ab"
+    }
+  ]
+}

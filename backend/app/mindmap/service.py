@@ -13,7 +13,6 @@ from app.mindmap.prompts import (
     expand_query,
 )
 from app.services.llm_service import LLMServiceError, generate_json_async
-from app.services.mastery_service import list_mastery
 from app.services.retrieval_service import search_subject_context
 
 
@@ -31,24 +30,9 @@ def _top_k(mode: str, focus_question: str) -> int:
 
 
 def _attach_mastery(*, user_id: str, subject_id: str, content: dict) -> None:
-    try:
-        rows = list_mastery(user_id=user_id, subject_id=subject_id)
-    except Exception:
-        rows = []
-    mastery_rows = [
-        (str(row.get("knowledge_key") or "").casefold().strip(), row.get("mastery"))
-        for row in rows
-        if row.get("knowledge_key") and row.get("mastery") is not None
-    ]
+    # Stable Topic bindings are read separately; labels are never mastery keys.
     for node in content["nodes"]:
         node["mastery"] = None
-        label = str(node["label"]).casefold().strip()
-        matches = [value for key, value in mastery_rows if key == label or key in label or label in key]
-        if matches:
-            try:
-                node["mastery"] = min(max(float(matches[0]), 0), 1)
-            except (TypeError, ValueError):
-                node["mastery"] = None
 
 
 async def generate_mind_map(*, user_id: str, subject_id: str, mode: str,

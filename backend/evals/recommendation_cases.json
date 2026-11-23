@@ -1,0 +1,1337 @@
+{
+  "datasetVersion": "recommendation-cases-v1",
+  "labelPolicy": "Manually specified policy expectations for synthetic source snapshots; acceptable Top-1 IDs are explicit. No real-user quality claim.",
+  "cases": [
+    {
+      "id": "no-courses-abstain",
+      "group": "cold_start",
+      "policy": "no courses abstain",
+      "now": "2026-10-08T00:00:00+00:00",
+      "snapshot": {
+        "subjects": [],
+        "topics": [],
+        "mastery": [],
+        "coverage": [],
+        "events": [],
+        "mappings": [],
+        "tasks": []
+      },
+      "expectedTop1Ids": [],
+      "requiredTop1ReasonCodes": []
+    },
+    {
+      "id": "empty-course-setup",
+      "group": "cold_start",
+      "policy": "empty course setup",
+      "now": "2026-10-08T00:00:00+00:00",
+      "snapshot": {
+        "subjects": [
+          {
+            "id": "s",
+            "name": "Course"
+          }
+        ],
+        "topics": [],
+        "mastery": [],
+        "coverage": [],
+        "events": [],
+        "mappings": [],
+        "tasks": []
+      },
+      "expectedTop1Ids": [
+        "setup:s"
+      ],
+      "requiredTop1ReasonCodes": [
+        "setup"
+      ],
+      "expectedActionType": "setup"
+    },
+    {
+      "id": "no-evidence-learn",
+      "group": "cold_start",
+      "policy": "no evidence learn",
+      "now": "2026-10-08T00:00:00+00:00",
+      "snapshot": {
+        "subjects": [
+          {
+            "id": "s",
+            "name": "Course"
+          }
+        ],
+        "topics": [
+          {
+            "id": "a",
+            "subject_id": "s",
+            "knowledge_key": "a",
+            "title": "a"
+          }
+        ],
+        "mastery": [],
+        "coverage": [],
+        "events": [],
+        "mappings": [],
+        "tasks": []
+      },
+      "expectedTop1Ids": [
+        "a"
+      ],
+      "requiredTop1ReasonCodes": [
+        "cold_start"
+      ],
+      "expectedActionType": "tutor"
+    },
+    {
+      "id": "coverage-is-not-assessment",
+      "group": "cold_start",
+      "policy": "coverage is not assessment",
+      "now": "2026-10-08T00:00:00+00:00",
+      "snapshot": {
+        "subjects": [
+          {
+            "id": "s",
+            "name": "Course"
+          }
+        ],
+        "topics": [
+          {
+            "id": "a",
+            "subject_id": "s",
+            "knowledge_key": "a",
+            "title": "a"
+          }
+        ],
+        "mastery": [],
+        "coverage": [
+          {
+            "knowledge_point_id": "a"
+          }
+        ],
+        "events": [],
+        "mappings": [],
+        "tasks": []
+      },
+      "expectedTop1Ids": [
+        "a"
+      ],
+      "requiredTop1ReasonCodes": [
+        "cold_start"
+      ],
+      "expectedActionType": "practice"
+    },
+    {
+      "id": "self-report-cannot-prove-mastery",
+      "group": "cold_start",
+      "policy": "self report cannot prove mastery",
+      "now": "2026-10-08T00:00:00+00:00",
+      "snapshot": {
+        "subjects": [
+          {
+            "id": "s",
+            "name": "Course"
+          }
+        ],
+        "topics": [
+          {
+            "id": "a",
+            "subject_id": "s",
+            "knowledge_key": "a",
+            "title": "a"
+          }
+        ],
+        "mastery": [
+          {
+            "subject_id": "s",
+            "knowledge_key": "a",
+            "mastery": 0.95,
+            "confidence": 1,
+            "attempts": 4,
+            "correct_attempts": 2,
+            "last_reviewed_at": "2026-10-08T00:00:00+00:00",
+            "metadata": {}
+          }
+        ],
+        "coverage": [
+          {
+            "knowledge_point_id": "a"
+          }
+        ],
+        "events": [],
+        "mappings": [],
+        "tasks": []
+      },
+      "expectedTop1Ids": [
+        "a"
+      ],
+      "requiredTop1ReasonCodes": [
+        "cold_start"
+      ]
+    },
+    {
+      "id": "weaker-objective-evidence-first",
+      "group": "mastery",
+      "policy": "weaker objective evidence first",
+      "now": "2026-10-08T00:00:00+00:00",
+      "snapshot": {
+        "subjects": [
+          {
+            "id": "s",
+            "name": "Course"
+          }
+        ],
+        "topics": [
+          {
+            "id": "a",
+            "subject_id": "s",
+            "knowledge_key": "a",
+            "title": "a"
+          },
+          {
+            "id": "b",
+            "subject_id": "s",
+            "knowledge_key": "b",
+            "title": "b"
+          }
+        ],
+        "mastery": [
+          {
+            "subject_id": "s",
+            "knowledge_key": "a",
+            "mastery": 0.2,
+            "confidence": 0.6,
+            "attempts": 4,
+            "correct_attempts": 0,
+            "last_reviewed_at": "2026-10-08T00:00:00+00:00",
+            "metadata": {
+              "assessmentCount": 4,
+              "assessmentCorrectStreak": 1
+            }
+          },
+          {
+            "subject_id": "s",
+            "knowledge_key": "b",
+            "mastery": 0.7,
+            "confidence": 0.6,
+            "attempts": 4,
+            "correct_attempts": 4,
+            "last_reviewed_at": "2026-10-08T00:00:00+00:00",
+            "metadata": {
+              "assessmentCount": 4,
+              "assessmentCorrectStreak": 1
+            }
+          }
+        ],
+        "coverage": [],
+        "events": [],
+        "mappings": [],
+        "tasks": []
+      },
+      "expectedTop1Ids": [
+        "a"
+      ],
+      "requiredTop1ReasonCodes": [
+        "mastery"
+      ],
+      "expectedActionType": "practice"
+    },
+    {
+      "id": "mastered-not-due-abstain",
+      "group": "mastery",
+      "policy": "mastered not due abstain",
+      "now": "2026-10-08T00:00:00+00:00",
+      "snapshot": {
+        "subjects": [
+          {
+            "id": "s",
+            "name": "Course"
+          }
+        ],
+        "topics": [
+          {
+            "id": "a",
+            "subject_id": "s",
+            "knowledge_key": "a",
+            "title": "a"
+          }
+        ],
+        "mastery": [
+          {
+            "subject_id": "s",
+            "knowledge_key": "a",
+            "mastery": 0.9,
+            "confidence": 0.6,
+            "attempts": 4,
+            "correct_attempts": 2,
+            "last_reviewed_at": "2026-10-08T00:00:00+00:00",
+            "metadata": {
+              "assessmentCount": 6,
+              "assessmentCorrectStreak": 6
+            },
+            "next_review_at": "2026-10-12T00:00:00Z"
+          }
+        ],
+        "coverage": [],
+        "events": [],
+        "mappings": [],
+        "tasks": []
+      },
+      "expectedTop1Ids": [],
+      "requiredTop1ReasonCodes": []
+    },
+    {
+      "id": "mastered-due-review",
+      "group": "retention",
+      "policy": "mastered due review",
+      "now": "2026-10-08T00:00:00+00:00",
+      "snapshot": {
+        "subjects": [
+          {
+            "id": "s",
+            "name": "Course"
+          }
+        ],
+        "topics": [
+          {
+            "id": "a",
+            "subject_id": "s",
+            "knowledge_key": "a",
+            "title": "a"
+          }
+        ],
+        "mastery": [
+          {
+            "subject_id": "s",
+            "knowledge_key": "a",
+            "mastery": 0.9,
+            "confidence": 0.6,
+            "attempts": 4,
+            "correct_attempts": 2,
+            "last_reviewed_at": "2026-10-08T00:00:00+00:00",
+            "metadata": {
+              "assessmentCount": 6,
+              "assessmentCorrectStreak": 6
+            },
+            "next_review_at": "2026-10-07T00:00:00Z"
+          }
+        ],
+        "coverage": [],
+        "events": [],
+        "mappings": [],
+        "tasks": []
+      },
+      "expectedTop1Ids": [
+        "a"
+      ],
+      "requiredTop1ReasonCodes": [
+        "due",
+        "mastery"
+      ],
+      "expectedActionType": "practice"
+    },
+    {
+      "id": "due-at-exact-instant",
+      "group": "retention",
+      "policy": "due at exact instant",
+      "now": "2026-10-08T00:00:00+00:00",
+      "snapshot": {
+        "subjects": [
+          {
+            "id": "s",
+            "name": "Course"
+          }
+        ],
+        "topics": [
+          {
+            "id": "a",
+            "subject_id": "s",
+            "knowledge_key": "a",
+            "title": "a"
+          }
+        ],
+        "mastery": [
+          {
+            "subject_id": "s",
+            "knowledge_key": "a",
+            "mastery": 0.9,
+            "confidence": 0.6,
+            "attempts": 4,
+            "correct_attempts": 2,
+            "last_reviewed_at": "2026-10-08T00:00:00+00:00",
+            "metadata": {
+              "assessmentCount": 6,
+              "assessmentCorrectStreak": 6
+            },
+            "next_review_at": "2026-10-08T00:00:00+00:00"
+          }
+        ],
+        "coverage": [],
+        "events": [],
+        "mappings": [],
+        "tasks": []
+      },
+      "expectedTop1Ids": [
+        "a"
+      ],
+      "requiredTop1ReasonCodes": [
+        "due"
+      ]
+    },
+    {
+      "id": "high-confidence-error-correction",
+      "group": "retention",
+      "policy": "high confidence error correction",
+      "now": "2026-10-08T00:00:00+00:00",
+      "snapshot": {
+        "subjects": [
+          {
+            "id": "s",
+            "name": "Course"
+          }
+        ],
+        "topics": [
+          {
+            "id": "a",
+            "subject_id": "s",
+            "knowledge_key": "a",
+            "title": "a"
+          },
+          {
+            "id": "b",
+            "subject_id": "s",
+            "knowledge_key": "b",
+            "title": "b"
+          }
+        ],
+        "mastery": [
+          {
+            "subject_id": "s",
+            "knowledge_key": "a",
+            "mastery": 0.4,
+            "confidence": 0.6,
+            "attempts": 4,
+            "correct_attempts": 2,
+            "last_reviewed_at": "2026-10-08T00:00:00+00:00",
+            "metadata": {
+              "assessmentCount": 4,
+              "misconceptionRisk": 0.9
+            }
+          },
+          {
+            "subject_id": "s",
+            "knowledge_key": "b",
+            "mastery": 0.4,
+            "confidence": 0.6,
+            "attempts": 4,
+            "correct_attempts": 2,
+            "last_reviewed_at": "2026-10-08T00:00:00+00:00",
+            "metadata": {
+              "assessmentCount": 4,
+              "assessmentCorrectStreak": 1
+            }
+          }
+        ],
+        "coverage": [],
+        "events": [],
+        "mappings": [],
+        "tasks": []
+      },
+      "expectedTop1Ids": [
+        "a"
+      ],
+      "requiredTop1ReasonCodes": [
+        "misconception",
+        "mastery"
+      ],
+      "expectedActionType": "tutor"
+    },
+    {
+      "id": "flashcard-failure-remains-visible",
+      "group": "retention",
+      "policy": "flashcard failure remains visible",
+      "now": "2026-10-08T00:00:00+00:00",
+      "snapshot": {
+        "subjects": [
+          {
+            "id": "s",
+            "name": "Course"
+          }
+        ],
+        "topics": [
+          {
+            "id": "a",
+            "subject_id": "s",
+            "knowledge_key": "a",
+            "title": "a"
+          }
+        ],
+        "mastery": [
+          {
+            "subject_id": "s",
+            "knowledge_key": "a",
+            "mastery": 0.9,
+            "confidence": 0.6,
+            "attempts": 4,
+            "correct_attempts": 2,
+            "last_reviewed_at": "2026-10-08T00:00:00+00:00",
+            "metadata": {
+              "assessmentCount": 6,
+              "assessmentCorrectStreak": 0,
+              "masteredAt": "2026-10-08T00:00:00+00:00",
+              "flashcardRecallRisk": true
+            }
+          }
+        ],
+        "coverage": [],
+        "events": [],
+        "mappings": [],
+        "tasks": []
+      },
+      "expectedTop1Ids": [
+        "a"
+      ],
+      "requiredTop1ReasonCodes": [
+        "recall_risk",
+        "mastery"
+      ],
+      "expectedActionType": "practice"
+    },
+    {
+      "id": "near-exam-scoped-topic-first",
+      "group": "exam",
+      "policy": "near exam scoped topic first",
+      "now": "2026-10-08T00:00:00+00:00",
+      "snapshot": {
+        "subjects": [
+          {
+            "id": "s",
+            "name": "Course"
+          }
+        ],
+        "topics": [
+          {
+            "id": "a",
+            "subject_id": "s",
+            "knowledge_key": "a",
+            "title": "a"
+          },
+          {
+            "id": "b",
+            "subject_id": "s",
+            "knowledge_key": "b",
+            "title": "b"
+          }
+        ],
+        "mastery": [
+          {
+            "subject_id": "s",
+            "knowledge_key": "a",
+            "mastery": 0.4,
+            "confidence": 0.6,
+            "attempts": 4,
+            "correct_attempts": 2,
+            "last_reviewed_at": "2026-10-08T00:00:00+00:00",
+            "metadata": {
+              "assessmentCount": 4,
+              "assessmentCorrectStreak": 1
+            }
+          },
+          {
+            "subject_id": "s",
+            "knowledge_key": "b",
+            "mastery": 0.4,
+            "confidence": 0.6,
+            "attempts": 4,
+            "correct_attempts": 2,
+            "last_reviewed_at": "2026-10-08T00:00:00+00:00",
+            "metadata": {
+              "assessmentCount": 4,
+              "assessmentCorrectStreak": 1
+            }
+          }
+        ],
+        "coverage": [],
+        "events": [
+          {
+            "id": "e",
+            "subject_id": "s",
+            "title": "e",
+            "exam_date": "2026-10-11",
+            "status": "active"
+          }
+        ],
+        "mappings": [
+          {
+            "exam_event_id": "e",
+            "knowledge_point_id": "b",
+            "weight": 5
+          }
+        ],
+        "tasks": []
+      },
+      "expectedTop1Ids": [
+        "b"
+      ],
+      "requiredTop1ReasonCodes": [
+        "exam",
+        "mastery"
+      ]
+    },
+    {
+      "id": "exam-weight-prioritizes-syllabus",
+      "group": "exam",
+      "policy": "exam weight prioritizes syllabus",
+      "now": "2026-10-08T00:00:00+00:00",
+      "snapshot": {
+        "subjects": [
+          {
+            "id": "s",
+            "name": "Course"
+          }
+        ],
+        "topics": [
+          {
+            "id": "a",
+            "subject_id": "s",
+            "knowledge_key": "a",
+            "title": "a"
+          },
+          {
+            "id": "b",
+            "subject_id": "s",
+            "knowledge_key": "b",
+            "title": "b"
+          }
+        ],
+        "mastery": [
+          {
+            "subject_id": "s",
+            "knowledge_key": "a",
+            "mastery": 0.4,
+            "confidence": 0.6,
+            "attempts": 4,
+            "correct_attempts": 2,
+            "last_reviewed_at": "2026-10-08T00:00:00+00:00",
+            "metadata": {
+              "assessmentCount": 4,
+              "assessmentCorrectStreak": 1
+            }
+          },
+          {
+            "subject_id": "s",
+            "knowledge_key": "b",
+            "mastery": 0.4,
+            "confidence": 0.6,
+            "attempts": 4,
+            "correct_attempts": 2,
+            "last_reviewed_at": "2026-10-08T00:00:00+00:00",
+            "metadata": {
+              "assessmentCount": 4,
+              "assessmentCorrectStreak": 1
+            }
+          }
+        ],
+        "coverage": [],
+        "events": [
+          {
+            "id": "e",
+            "subject_id": "s",
+            "title": "e",
+            "exam_date": "2026-10-11",
+            "status": "active"
+          }
+        ],
+        "mappings": [
+          {
+            "exam_event_id": "e",
+            "knowledge_point_id": "a",
+            "weight": 1
+          },
+          {
+            "exam_event_id": "e",
+            "knowledge_point_id": "b",
+            "weight": 5
+          }
+        ],
+        "tasks": []
+      },
+      "expectedTop1Ids": [
+        "b"
+      ],
+      "requiredTop1ReasonCodes": [
+        "exam"
+      ]
+    },
+    {
+      "id": "nearest-weighted-exam-first",
+      "group": "exam",
+      "policy": "nearest weighted exam first",
+      "now": "2026-10-08T00:00:00+00:00",
+      "snapshot": {
+        "subjects": [
+          {
+            "id": "s",
+            "name": "Course"
+          }
+        ],
+        "topics": [
+          {
+            "id": "a",
+            "subject_id": "s",
+            "knowledge_key": "a",
+            "title": "a"
+          },
+          {
+            "id": "b",
+            "subject_id": "s",
+            "knowledge_key": "b",
+            "title": "b"
+          }
+        ],
+        "mastery": [
+          {
+            "subject_id": "s",
+            "knowledge_key": "a",
+            "mastery": 0.4,
+            "confidence": 0.6,
+            "attempts": 4,
+            "correct_attempts": 2,
+            "last_reviewed_at": "2026-10-08T00:00:00+00:00",
+            "metadata": {
+              "assessmentCount": 4,
+              "assessmentCorrectStreak": 1
+            }
+          },
+          {
+            "subject_id": "s",
+            "knowledge_key": "b",
+            "mastery": 0.4,
+            "confidence": 0.6,
+            "attempts": 4,
+            "correct_attempts": 2,
+            "last_reviewed_at": "2026-10-08T00:00:00+00:00",
+            "metadata": {
+              "assessmentCount": 4,
+              "assessmentCorrectStreak": 1
+            }
+          }
+        ],
+        "coverage": [],
+        "events": [
+          {
+            "id": "later",
+            "subject_id": "s",
+            "title": "later",
+            "exam_date": "2026-10-20",
+            "status": "active"
+          },
+          {
+            "id": "near",
+            "subject_id": "s",
+            "title": "near",
+            "exam_date": "2026-10-09",
+            "status": "active"
+          }
+        ],
+        "mappings": [
+          {
+            "exam_event_id": "later",
+            "knowledge_point_id": "a",
+            "weight": 5
+          },
+          {
+            "exam_event_id": "near",
+            "knowledge_point_id": "b",
+            "weight": 5
+          }
+        ],
+        "tasks": []
+      },
+      "expectedTop1Ids": [
+        "b"
+      ],
+      "requiredTop1ReasonCodes": [
+        "exam"
+      ]
+    },
+    {
+      "id": "expired-exam-no-boost",
+      "group": "scope",
+      "policy": "expired exam no boost",
+      "now": "2026-10-08T00:00:00+00:00",
+      "snapshot": {
+        "subjects": [
+          {
+            "id": "s",
+            "name": "Course"
+          }
+        ],
+        "topics": [
+          {
+            "id": "a",
+            "subject_id": "s",
+            "knowledge_key": "a",
+            "title": "a"
+          },
+          {
+            "id": "b",
+            "subject_id": "s",
+            "knowledge_key": "b",
+            "title": "b"
+          }
+        ],
+        "mastery": [],
+        "coverage": [],
+        "events": [
+          {
+            "id": "e",
+            "subject_id": "s",
+            "title": "e",
+            "exam_date": "2026-10-07",
+            "status": "active"
+          }
+        ],
+        "mappings": [
+          {
+            "exam_event_id": "e",
+            "knowledge_point_id": "b",
+            "weight": 5
+          }
+        ],
+        "tasks": []
+      },
+      "expectedTop1Ids": [
+        "a"
+      ],
+      "requiredTop1ReasonCodes": [
+        "cold_start"
+      ]
+    },
+    {
+      "id": "archived-exam-no-boost",
+      "group": "scope",
+      "policy": "archived exam no boost",
+      "now": "2026-10-08T00:00:00+00:00",
+      "snapshot": {
+        "subjects": [
+          {
+            "id": "s",
+            "name": "Course"
+          }
+        ],
+        "topics": [
+          {
+            "id": "a",
+            "subject_id": "s",
+            "knowledge_key": "a",
+            "title": "a"
+          },
+          {
+            "id": "b",
+            "subject_id": "s",
+            "knowledge_key": "b",
+            "title": "b"
+          }
+        ],
+        "mastery": [],
+        "coverage": [],
+        "events": [
+          {
+            "id": "e",
+            "subject_id": "s",
+            "title": "e",
+            "exam_date": "2026-10-11",
+            "status": "archived"
+          }
+        ],
+        "mappings": [
+          {
+            "exam_event_id": "e",
+            "knowledge_point_id": "b",
+            "weight": 5
+          }
+        ],
+        "tasks": []
+      },
+      "expectedTop1Ids": [
+        "a"
+      ],
+      "requiredTop1ReasonCodes": [
+        "cold_start"
+      ]
+    },
+    {
+      "id": "zero-weight-not-in-scope",
+      "group": "scope",
+      "policy": "zero weight not in scope",
+      "now": "2026-10-08T00:00:00+00:00",
+      "snapshot": {
+        "subjects": [
+          {
+            "id": "s",
+            "name": "Course"
+          }
+        ],
+        "topics": [
+          {
+            "id": "a",
+            "subject_id": "s",
+            "knowledge_key": "a",
+            "title": "a"
+          },
+          {
+            "id": "b",
+            "subject_id": "s",
+            "knowledge_key": "b",
+            "title": "b"
+          }
+        ],
+        "mastery": [],
+        "coverage": [],
+        "events": [
+          {
+            "id": "e",
+            "subject_id": "s",
+            "title": "e",
+            "exam_date": "2026-10-11",
+            "status": "active"
+          }
+        ],
+        "mappings": [
+          {
+            "exam_event_id": "e",
+            "knowledge_point_id": "b",
+            "weight": 0
+          }
+        ],
+        "tasks": []
+      },
+      "expectedTop1Ids": [
+        "a"
+      ],
+      "requiredTop1ReasonCodes": [
+        "cold_start"
+      ]
+    },
+    {
+      "id": "archived-and-foreign-topics-excluded",
+      "group": "scope",
+      "policy": "archived and foreign topics excluded",
+      "now": "2026-10-08T00:00:00+00:00",
+      "snapshot": {
+        "subjects": [
+          {
+            "id": "s",
+            "name": "Course"
+          }
+        ],
+        "topics": [
+          {
+            "id": "a",
+            "subject_id": "s",
+            "knowledge_key": "a",
+            "title": "a",
+            "archived": true
+          },
+          {
+            "id": "foreign",
+            "subject_id": "outside",
+            "knowledge_key": "foreign",
+            "title": "foreign"
+          }
+        ],
+        "mastery": [],
+        "coverage": [],
+        "events": [],
+        "mappings": [],
+        "tasks": []
+      },
+      "expectedTop1Ids": [
+        "setup:s"
+      ],
+      "requiredTop1ReasonCodes": [
+        "setup"
+      ],
+      "forbiddenActionIds": [
+        "a",
+        "foreign"
+      ]
+    },
+    {
+      "id": "cross-subject-exam-map-rejected",
+      "group": "scope",
+      "policy": "cross subject exam map rejected",
+      "now": "2026-10-08T00:00:00+00:00",
+      "snapshot": {
+        "subjects": [
+          {
+            "id": "s",
+            "name": "Course"
+          },
+          {
+            "id": "other",
+            "name": "Other Course"
+          }
+        ],
+        "topics": [
+          {
+            "id": "a",
+            "subject_id": "s",
+            "knowledge_key": "a",
+            "title": "a"
+          },
+          {
+            "id": "b",
+            "subject_id": "other",
+            "knowledge_key": "b",
+            "title": "b"
+          }
+        ],
+        "mastery": [],
+        "coverage": [],
+        "events": [
+          {
+            "id": "e",
+            "subject_id": "other",
+            "title": "e",
+            "exam_date": "2026-10-11",
+            "status": "active"
+          }
+        ],
+        "mappings": [
+          {
+            "exam_event_id": "e",
+            "knowledge_point_id": "a",
+            "weight": 5
+          }
+        ],
+        "tasks": []
+      },
+      "expectedTop1Ids": [
+        "b"
+      ],
+      "requiredTop1ReasonCodes": [
+        "cold_start"
+      ]
+    },
+    {
+      "id": "foreign-event-excluded",
+      "group": "scope",
+      "policy": "foreign event excluded",
+      "now": "2026-10-08T00:00:00+00:00",
+      "snapshot": {
+        "subjects": [
+          {
+            "id": "s",
+            "name": "Course"
+          }
+        ],
+        "topics": [
+          {
+            "id": "a",
+            "subject_id": "s",
+            "knowledge_key": "a",
+            "title": "a"
+          }
+        ],
+        "mastery": [],
+        "coverage": [],
+        "events": [
+          {
+            "id": "e",
+            "subject_id": "outside",
+            "title": "e",
+            "exam_date": "2026-10-11",
+            "status": "active"
+          }
+        ],
+        "mappings": [
+          {
+            "exam_event_id": "e",
+            "knowledge_point_id": "a",
+            "weight": 5
+          }
+        ],
+        "tasks": []
+      },
+      "expectedTop1Ids": [
+        "a"
+      ],
+      "requiredTop1ReasonCodes": [
+        "cold_start"
+      ]
+    },
+    {
+      "id": "shanghai-day-boundary-exam-today",
+      "group": "time",
+      "policy": "shanghai day boundary exam today",
+      "now": "2026-10-08T16:30:00+00:00",
+      "snapshot": {
+        "subjects": [
+          {
+            "id": "s",
+            "name": "Course"
+          }
+        ],
+        "topics": [
+          {
+            "id": "a",
+            "subject_id": "s",
+            "knowledge_key": "a",
+            "title": "a"
+          }
+        ],
+        "mastery": [],
+        "coverage": [],
+        "events": [
+          {
+            "id": "e",
+            "subject_id": "s",
+            "title": "e",
+            "exam_date": "2026-10-09",
+            "status": "active"
+          }
+        ],
+        "mappings": [
+          {
+            "exam_event_id": "e",
+            "knowledge_point_id": "a",
+            "weight": 5
+          }
+        ],
+        "tasks": []
+      },
+      "expectedTop1Ids": [
+        "a"
+      ],
+      "requiredTop1ReasonCodes": [
+        "exam"
+      ]
+    },
+    {
+      "id": "stable-topic-tie",
+      "group": "determinism",
+      "policy": "stable topic tie",
+      "now": "2026-10-08T00:00:00+00:00",
+      "snapshot": {
+        "subjects": [
+          {
+            "id": "s",
+            "name": "Course"
+          }
+        ],
+        "topics": [
+          {
+            "id": "b",
+            "subject_id": "s",
+            "knowledge_key": "b",
+            "title": "b"
+          },
+          {
+            "id": "a",
+            "subject_id": "s",
+            "knowledge_key": "a",
+            "title": "a"
+          }
+        ],
+        "mastery": [],
+        "coverage": [],
+        "events": [],
+        "mappings": [],
+        "tasks": []
+      },
+      "expectedTop1Ids": [
+        "a"
+      ],
+      "requiredTop1ReasonCodes": [
+        "cold_start"
+      ]
+    },
+    {
+      "id": "tasks-stable-over-page-limit",
+      "group": "determinism",
+      "policy": "tasks stable over page limit",
+      "now": "2026-10-08T00:00:00+00:00",
+      "snapshot": {
+        "subjects": [
+          {
+            "id": "s",
+            "name": "Course"
+          }
+        ],
+        "topics": [
+          {
+            "id": "b",
+            "subject_id": "s",
+            "knowledge_key": "b",
+            "title": "b"
+          },
+          {
+            "id": "a",
+            "subject_id": "s",
+            "knowledge_key": "a",
+            "title": "a"
+          }
+        ],
+        "mastery": [],
+        "coverage": [],
+        "events": [],
+        "mappings": [],
+        "tasks": [
+          {
+            "id": "task-00",
+            "subject_id": "s",
+            "title": "Task",
+            "estimated_minutes": 15,
+            "scheduled_date": "2026-10-08",
+            "status": "pending"
+          },
+          {
+            "id": "task-01",
+            "subject_id": "s",
+            "title": "Task",
+            "estimated_minutes": 15,
+            "scheduled_date": "2026-10-08",
+            "status": "pending"
+          },
+          {
+            "id": "task-02",
+            "subject_id": "s",
+            "title": "Task",
+            "estimated_minutes": 15,
+            "scheduled_date": "2026-10-08",
+            "status": "pending"
+          },
+          {
+            "id": "task-03",
+            "subject_id": "s",
+            "title": "Task",
+            "estimated_minutes": 15,
+            "scheduled_date": "2026-10-08",
+            "status": "pending"
+          },
+          {
+            "id": "task-04",
+            "subject_id": "s",
+            "title": "Task",
+            "estimated_minutes": 15,
+            "scheduled_date": "2026-10-08",
+            "status": "pending"
+          },
+          {
+            "id": "task-05",
+            "subject_id": "s",
+            "title": "Task",
+            "estimated_minutes": 15,
+            "scheduled_date": "2026-10-08",
+            "status": "pending"
+          },
+          {
+            "id": "task-06",
+            "subject_id": "s",
+            "title": "Task",
+            "estimated_minutes": 15,
+            "scheduled_date": "2026-10-08",
+            "status": "pending"
+          },
+          {
+            "id": "task-07",
+            "subject_id": "s",
+            "title": "Task",
+            "estimated_minutes": 15,
+            "scheduled_date": "2026-10-08",
+            "status": "pending"
+          },
+          {
+            "id": "task-08",
+            "subject_id": "s",
+            "title": "Task",
+            "estimated_minutes": 15,
+            "scheduled_date": "2026-10-08",
+            "status": "pending"
+          },
+          {
+            "id": "task-09",
+            "subject_id": "s",
+            "title": "Task",
+            "estimated_minutes": 15,
+            "scheduled_date": "2026-10-08",
+            "status": "pending"
+          },
+          {
+            "id": "task-10",
+            "subject_id": "s",
+            "title": "Task",
+            "estimated_minutes": 15,
+            "scheduled_date": "2026-10-08",
+            "status": "pending"
+          },
+          {
+            "id": "task-11",
+            "subject_id": "s",
+            "title": "Task",
+            "estimated_minutes": 15,
+            "scheduled_date": "2026-10-08",
+            "status": "pending"
+          }
+        ]
+      },
+      "expectedTop1Ids": [
+        "a"
+      ],
+      "requiredTop1ReasonCodes": [
+        "cold_start"
+      ]
+    },
+    {
+      "id": "explicit-action-limit",
+      "group": "determinism",
+      "policy": "explicit action limit",
+      "now": "2026-10-08T00:00:00+00:00",
+      "snapshot": {
+        "subjects": [
+          {
+            "id": "s",
+            "name": "Course"
+          }
+        ],
+        "topics": [
+          {
+            "id": "a",
+            "subject_id": "s",
+            "knowledge_key": "a",
+            "title": "a"
+          },
+          {
+            "id": "b",
+            "subject_id": "s",
+            "knowledge_key": "b",
+            "title": "b"
+          },
+          {
+            "id": "c",
+            "subject_id": "s",
+            "knowledge_key": "c",
+            "title": "c"
+          },
+          {
+            "id": "d",
+            "subject_id": "s",
+            "knowledge_key": "d",
+            "title": "d"
+          }
+        ],
+        "mastery": [],
+        "coverage": [],
+        "events": [],
+        "mappings": [],
+        "tasks": []
+      },
+      "expectedTop1Ids": [
+        "a"
+      ],
+      "requiredTop1ReasonCodes": [
+        "cold_start"
+      ],
+      "limit": 1
+    }
+  ]
+}

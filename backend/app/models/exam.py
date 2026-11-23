@@ -1,4 +1,5 @@
 from typing import Literal
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -30,9 +31,13 @@ class ExamGenerateRequest(ApiModel):
     knowledge_policy: KnowledgePolicy | None = Field(default=None, alias="knowledgePolicy")
     avoid_seen: bool = Field(default=True, alias="avoidSeen")
     assessment_type: AssessmentType = Field(default="mock", alias="assessmentType")
+    assessment_mode: Literal["formal", "adaptive"] | None = Field(default=None, alias="assessmentMode")
+    knowledge_point_id: UUID | None = Field(default=None, alias="knowledgePointId")
 
     @model_validator(mode="after")
     def question_limit(self):
+        if self.assessment_mode is None:
+            self.assessment_mode = "adaptive" if self.assessment_type == "practice" else "formal"
         if self.knowledge_policy is None:
             self.knowledge_policy = "course_first" if self.assessment_type == "practice" else "course_only"
         if self.assessment_type == "practice":
@@ -54,7 +59,17 @@ class StartAttemptRequest(ApiModel):
 class SaveResponseRequest(ApiModel):
     question_id: str = Field(alias="questionId")
     response: object
+    learner_confidence: float | None = Field(default=None, ge=0, le=1, alias="learnerConfidence")
+    response_seconds: float | None = Field(default=None, ge=0, le=86400, alias="responseSeconds")
+    hint_count: int = Field(default=0, ge=0, le=100, alias="hintCount")
 
 
 class ConfirmResponseRequest(ApiModel):
     response: object
+    learner_confidence: float | None = Field(default=None, ge=0, le=1, alias="learnerConfidence")
+    response_seconds: float | None = Field(default=None, ge=0, le=86400, alias="responseSeconds")
+    hint_count: int = Field(default=0, ge=0, le=100, alias="hintCount")
+
+
+class ResumeQuizRequest(ApiModel):
+    remediation_note: str = Field(min_length=20, max_length=2000, alias="remediationNote")

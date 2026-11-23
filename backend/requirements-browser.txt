@@ -1,0 +1,2 @@
+# Optional local real-browser acceptance; uses the installed Edge or Chrome.
+playwright==1.64.1

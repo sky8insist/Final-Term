@@ -16,7 +16,7 @@ def export_data(current_user: CurrentUser = Depends(get_current_user)):
     return Response(
         json.dumps(payload, ensure_ascii=False, indent=2, default=str),
         media_type="application/json",
-        headers={"Content-Disposition": "attachment; filename=examai-data-export.json"},
+        headers={"Content-Disposition": "attachment; filename=examai-data-export.json", "Cache-Control": "no-store"},
     )
 
 

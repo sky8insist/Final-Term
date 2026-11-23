@@ -1,4 +1,5 @@
 from typing import Literal
+from uuid import UUID
 
 from pydantic import BaseModel, Field
 
@@ -29,6 +30,8 @@ class AssistantMessageRequest(BaseModel):
     response_to_message_id: str | None = Field(default=None, validation_alias="responseToMessageId")
     question_id: str | None = Field(default=None, validation_alias="questionId")
     attempt_id: str | None = Field(default=None, validation_alias="attemptId")
+    guided_session_id: str | None = Field(default=None, validation_alias="guidedSessionId")
+    conversion_id: UUID | None = Field(default=None, validation_alias='conversionId')
     dialogue_act_override: DialogueAct | None = Field(default=None, validation_alias="dialogueActOverride")
 
 

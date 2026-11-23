@@ -1,0 +1,13 @@
+{
+  "datasetKind": "synthetic-regression",
+  "retrieval": [
+    {"id":"rank-definition","input":{"query":"matrix definition","candidates":[{"id":"unrelated","chunkText":"Flowers bloom in spring.","rrfScore":0.9},{"id":"definition","chunkText":"A matrix definition is a rectangular array of numbers.","rrfScore":0.6},{"id":"example","chunkText":"A matrix can have two rows.","rrfScore":0.4}]},"relevance":{"definition":3,"example":1},"forbiddenIds":["other-user"]},
+    {"id":"rank-condition","input":{"query":"invertible matrix condition","candidates":[{"id":"history","chunkText":"The course was taught in autumn.","rrfScore":0.9},{"id":"condition","chunkText":"An invertible matrix condition is a nonzero determinant.","rrfScore":0.6}]},"relevance":{"condition":3},"forbiddenIds":["other-user"]},
+    {"id":"rank-lexical-ambiguity","input":{"query":"jaguar","candidates":[{"id":"animal","chunkText":"A large American cat with a spotted coat.","rrfScore":0.9},{"id":"car","chunkText":"Jaguar engines are used in sports cars.","rrfScore":0.6}]},"relevance":{"animal":3,"car":0},"forbiddenIds":["other-user"]}
+  ],
+  "plans": [
+    {"id":"plan-exam-scope","input":{"start":"2026-10-27","target":"2026-10-27","dailyMinutes":35,"signals":[{"knowledgeKey":"outside","needScore":1,"mastery":0.2},{"knowledgeKey":"required","needScore":0.8,"mastery":0.3}],"states":[{"knowledgePointId":"outside","knowledgeKey":"outside","title":"Outside","state":"practicing","masteryScore":0.2},{"knowledgePointId":"required","knowledgeKey":"required","title":"Required","state":"practicing","masteryScore":0.3}],"mappings":[{"knowledge_point_id":"required","weight":5}]},"relevance":{"required":3,"outside":0},"allowedTopicIds":["required"],"capacityMinutes":{"2026-10-27":35}},
+    {"id":"plan-mastered","input":{"start":"2026-10-27","target":"2026-10-27","dailyMinutes":35,"signals":[{"knowledgeKey":"known","needScore":1,"mastery":0.9},{"knowledgeKey":"weak","needScore":0.7,"mastery":0.3}],"states":[{"knowledgePointId":"known","knowledgeKey":"known","title":"Known","state":"mastered","masteryScore":0.9},{"knowledgePointId":"weak","knowledgeKey":"weak","title":"Weak","state":"practicing","masteryScore":0.3}],"mappings":[]},"relevance":{"weak":3,"known":0},"allowedTopicIds":["known","weak"],"capacityMinutes":{"2026-10-27":35}},
+    {"id":"plan-no-capacity","input":{"start":"2026-10-27","target":"2026-10-27","dailyMinutes":0,"signals":[{"knowledgeKey":"required","needScore":0.8,"mastery":0.3}],"states":[{"knowledgePointId":"required","knowledgeKey":"required","title":"Required","state":"practicing","masteryScore":0.3}],"mappings":[]},"relevance":{"required":3},"allowedTopicIds":["required"],"capacityMinutes":{"2026-10-27":0}}
+  ]
+}

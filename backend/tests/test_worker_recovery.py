@@ -41,5 +41,5 @@ def test_recovery_requeues_running_and_queued_tasks(monkeypatch):
 
     assert recover.recover_unfinished_tasks() == 2
     assert dispatched == ["running-task", "queued-task"]
-    assert client.queries["processing_tasks"].updates[0]["status"] == "queued"
-    assert client.queries["processing_tasks"].updates[0]["attempts"] == 0
+    assert client.queries["processing_tasks"].updates == []
+    assert tasks[0]["attempts"] == 1

@@ -1,0 +1,1608 @@
+{
+  "evaluationVersion": "recommendation-eval-v1",
+  "datasetVersion": "recommendation-cases-v1",
+  "algorithmVersion": "next-action-v2",
+  "scope": "synthetic offline policy regression; not real-user recommendation quality or DB isolation",
+  "metrics": {
+    "caseCount": 24,
+    "selectionCaseCount": 22,
+    "abstentionCaseCount": 2,
+    "top1HitRate": 1.0,
+    "abstentionAccuracy": 1.0,
+    "reasonClaimCount": 43,
+    "supportedReasonClaimCount": 43,
+    "reasonFaithfulness": 1.0,
+    "snapshotScopeConsistency": 1.0,
+    "determinismRate": 1.0
+  },
+  "groups": {
+    "cold_start": {
+      "caseCount": 5,
+      "policyPassRate": 1.0
+    },
+    "determinism": {
+      "caseCount": 3,
+      "policyPassRate": 1.0
+    },
+    "exam": {
+      "caseCount": 3,
+      "policyPassRate": 1.0
+    },
+    "mastery": {
+      "caseCount": 2,
+      "policyPassRate": 1.0
+    },
+    "retention": {
+      "caseCount": 4,
+      "policyPassRate": 1.0
+    },
+    "scope": {
+      "caseCount": 6,
+      "policyPassRate": 1.0
+    },
+    "time": {
+      "caseCount": 1,
+      "policyPassRate": 1.0
+    }
+  },
+  "passed": true,
+  "cases": [
+    {
+      "caseId": "no-courses-abstain",
+      "group": "cold_start",
+      "expectedTop1Ids": [],
+      "actualTop1Id": null,
+      "top1Hit": true,
+      "deterministic": true,
+      "actions": [],
+      "claims": [],
+      "failures": []
+    },
+    {
+      "caseId": "empty-course-setup",
+      "group": "cold_start",
+      "expectedTop1Ids": [
+        "setup:s"
+      ],
+      "actualTop1Id": "setup:s",
+      "top1Hit": true,
+      "deterministic": true,
+      "actions": [
+        {
+          "id": "setup:s",
+          "knowledgePointId": null,
+          "subjectId": "s",
+          "subjectName": "Course",
+          "topicTitle": null,
+          "title": "建立 Course 的课程目录",
+          "actionType": "setup",
+          "state": "not_started",
+          "masteryScore": null,
+          "estimatedMinutes": 10,
+          "priorityScore": 0.3,
+          "reasons": [
+            "尚无课程知识点，请上传资料或添加课程结构"
+          ],
+          "coldStart": true,
+          "href": "/course",
+          "scoreComponents": {}
+        }
+      ],
+      "claims": [
+        {
+          "actionId": "setup:s",
+          "reason": "尚无课程知识点，请上传资料或添加课程结构",
+          "code": "setup",
+          "supported": true
+        }
+      ],
+      "failures": []
+    },
+    {
+      "caseId": "no-evidence-learn",
+      "group": "cold_start",
+      "expectedTop1Ids": [
+        "a"
+      ],
+      "actualTop1Id": "a",
+      "top1Hit": true,
+      "deterministic": true,
+      "actions": [
+        {
+          "id": "a",
+          "knowledgePointId": "a",
+          "subjectId": "s",
+          "subjectName": "Course",
+          "topicTitle": "a",
+          "title": "学习 a",
+          "actionType": "tutor",
+          "state": "not_started",
+          "masteryScore": 0.5,
+          "estimatedMinutes": 25,
+          "priorityScore": 0.44,
+          "reasons": [
+            "评估证据不足，先建立学习与诊断基线"
+          ],
+          "coldStart": true,
+          "href": "/guided-study?topicId=a",
+          "scoreComponents": {
+            "masteryGap": 0.5,
+            "practiceLoss": 0.5,
+            "forgetting": 1.0,
+            "dialogueConfusion": 0.0,
+            "importance": 0.4,
+            "dataConfidence": 0.0,
+            "confidenceMismatch": 0.0,
+            "examUrgency": 0,
+            "dueReview": 0
+          }
+        }
+      ],
+      "claims": [
+        {
+          "actionId": "a",
+          "reason": "评估证据不足，先建立学习与诊断基线",
+          "code": "cold_start",
+          "supported": true
+        }
+      ],
+      "failures": []
+    },
+    {
+      "caseId": "coverage-is-not-assessment",
+      "group": "cold_start",
+      "expectedTop1Ids": [
+        "a"
+      ],
+      "actualTop1Id": "a",
+      "top1Hit": true,
+      "deterministic": true,
+      "actions": [
+        {
+          "id": "a",
+          "knowledgePointId": "a",
+          "subjectId": "s",
+          "subjectName": "Course",
+          "topicTitle": "a",
+          "title": "复习 a",
+          "actionType": "practice",
+          "state": "covered",
+          "masteryScore": 0.5,
+          "estimatedMinutes": 15,
+          "priorityScore": 0.44,
+          "reasons": [
+            "评估证据不足，先建立学习与诊断基线"
+          ],
+          "coldStart": true,
+          "href": "/guided-study?topicId=a",
+          "scoreComponents": {
+            "masteryGap": 0.5,
+            "practiceLoss": 0.5,
+            "forgetting": 1.0,
+            "dialogueConfusion": 0.0,
+            "importance": 0.4,
+            "dataConfidence": 0.0,
+            "confidenceMismatch": 0.0,
+            "examUrgency": 0,
+            "dueReview": 0
+          }
+        }
+      ],
+      "claims": [
+        {
+          "actionId": "a",
+          "reason": "评估证据不足，先建立学习与诊断基线",
+          "code": "cold_start",
+          "supported": true
+        }
+      ],
+      "failures": []
+    },
+    {
+      "caseId": "self-report-cannot-prove-mastery",
+      "group": "cold_start",
+      "expectedTop1Ids": [
+        "a"
+      ],
+      "actualTop1Id": "a",
+      "top1Hit": true,
+      "deterministic": true,
+      "actions": [
+        {
+          "id": "a",
+          "knowledgePointId": "a",
+          "subjectId": "s",
+          "subjectName": "Course",
+          "topicTitle": "a",
+          "title": "复习 a",
+          "actionType": "practice",
+          "state": "practicing",
+          "masteryScore": 0.95,
+          "estimatedMinutes": 15,
+          "priorityScore": 0.195,
+          "reasons": [
+            "评估证据不足，先建立学习与诊断基线"
+          ],
+          "coldStart": true,
+          "href": "/guided-study?topicId=a",
+          "scoreComponents": {
+            "masteryGap": 0.05,
+            "practiceLoss": 0.5,
+            "forgetting": 0.0,
+            "dialogueConfusion": 0.0,
+            "importance": 0.4,
+            "dataConfidence": 0.8,
+            "confidenceMismatch": 0.0,
+            "examUrgency": 0,
+            "dueReview": 0
+          }
+        }
+      ],
+      "claims": [
+        {
+          "actionId": "a",
+          "reason": "评估证据不足，先建立学习与诊断基线",
+          "code": "cold_start",
+          "supported": true
+        }
+      ],
+      "failures": []
+    },
+    {
+      "caseId": "weaker-objective-evidence-first",
+      "group": "mastery",
+      "expectedTop1Ids": [
+        "a"
+      ],
+      "actualTop1Id": "a",
+      "top1Hit": true,
+      "deterministic": true,
+      "actions": [
+        {
+          "id": "a",
+          "knowledgePointId": "a",
+          "subjectId": "s",
+          "subjectName": "Course",
+          "topicTitle": "a",
+          "title": "复习 a",
+          "actionType": "practice",
+          "state": "practicing",
+          "masteryScore": 0.2,
+          "estimatedMinutes": 15,
+          "priorityScore": 0.508,
+          "reasons": [
+            "当前掌握度 20%"
+          ],
+          "coldStart": false,
+          "href": "/guided-study?topicId=a",
+          "scoreComponents": {
+            "masteryGap": 0.8,
+            "practiceLoss": 1.0,
+            "forgetting": 0.0,
+            "dialogueConfusion": 0.0,
+            "importance": 0.4,
+            "dataConfidence": 0.56,
+            "confidenceMismatch": 0.0,
+            "examUrgency": 0,
+            "dueReview": 0
+          }
+        },
+        {
+          "id": "b",
+          "knowledgePointId": "b",
+          "subjectId": "s",
+          "subjectName": "Course",
+          "topicTitle": "b",
+          "title": "复习 b",
+          "actionType": "practice",
+          "state": "practicing",
+          "masteryScore": 0.7,
+          "estimatedMinutes": 15,
+          "priorityScore": 0.158,
+          "reasons": [
+            "当前掌握度 70%"
+          ],
+          "coldStart": false,
+          "href": "/guided-study?topicId=b",
+          "scoreComponents": {
+            "masteryGap": 0.3,
+            "practiceLoss": 0.0,
+            "forgetting": 0.0,
+            "dialogueConfusion": 0.0,
+            "importance": 0.4,
+            "dataConfidence": 0.56,
+            "confidenceMismatch": 0.0,
+            "examUrgency": 0,
+            "dueReview": 0
+          }
+        }
+      ],
+      "claims": [
+        {
+          "actionId": "a",
+          "reason": "当前掌握度 20%",
+          "code": "mastery",
+          "supported": true
+        },
+        {
+          "actionId": "b",
+          "reason": "当前掌握度 70%",
+          "code": "mastery",
+          "supported": true
+        }
+      ],
+      "failures": []
+    },
+    {
+      "caseId": "mastered-not-due-abstain",
+      "group": "mastery",
+      "expectedTop1Ids": [],
+      "actualTop1Id": null,
+      "top1Hit": true,
+      "deterministic": true,
+      "actions": [],
+      "claims": [],
+      "failures": []
+    },
+    {
+      "caseId": "mastered-due-review",
+      "group": "retention",
+      "expectedTop1Ids": [
+        "a"
+      ],
+      "actualTop1Id": "a",
+      "top1Hit": true,
+      "deterministic": true,
+      "actions": [
+        {
+          "id": "a",
+          "knowledgePointId": "a",
+          "subjectId": "s",
+          "subjectName": "Course",
+          "topicTitle": "a",
+          "title": "复习 a",
+          "actionType": "practice",
+          "state": "at_risk",
+          "masteryScore": 0.9,
+          "estimatedMinutes": 15,
+          "priorityScore": 0.398,
+          "reasons": [
+            "复习已到期",
+            "当前掌握度 90%"
+          ],
+          "coldStart": false,
+          "href": "/guided-study?topicId=a",
+          "scoreComponents": {
+            "masteryGap": 0.1,
+            "practiceLoss": 0.5,
+            "forgetting": 0.0,
+            "dialogueConfusion": 0.0,
+            "importance": 0.4,
+            "dataConfidence": 0.56,
+            "confidenceMismatch": 0.0,
+            "examUrgency": 0,
+            "dueReview": 1
+          }
+        }
+      ],
+      "claims": [
+        {
+          "actionId": "a",
+          "reason": "复习已到期",
+          "code": "due",
+          "supported": true
+        },
+        {
+          "actionId": "a",
+          "reason": "当前掌握度 90%",
+          "code": "mastery",
+          "supported": true
+        }
+      ],
+      "failures": []
+    },
+    {
+      "caseId": "due-at-exact-instant",
+      "group": "retention",
+      "expectedTop1Ids": [
+        "a"
+      ],
+      "actualTop1Id": "a",
+      "top1Hit": true,
+      "deterministic": true,
+      "actions": [
+        {
+          "id": "a",
+          "knowledgePointId": "a",
+          "subjectId": "s",
+          "subjectName": "Course",
+          "topicTitle": "a",
+          "title": "复习 a",
+          "actionType": "practice",
+          "state": "at_risk",
+          "masteryScore": 0.9,
+          "estimatedMinutes": 15,
+          "priorityScore": 0.398,
+          "reasons": [
+            "复习已到期",
+            "当前掌握度 90%"
+          ],
+          "coldStart": false,
+          "href": "/guided-study?topicId=a",
+          "scoreComponents": {
+            "masteryGap": 0.1,
+            "practiceLoss": 0.5,
+            "forgetting": 0.0,
+            "dialogueConfusion": 0.0,
+            "importance": 0.4,
+            "dataConfidence": 0.56,
+            "confidenceMismatch": 0.0,
+            "examUrgency": 0,
+            "dueReview": 1
+          }
+        }
+      ],
+      "claims": [
+        {
+          "actionId": "a",
+          "reason": "复习已到期",
+          "code": "due",
+          "supported": true
+        },
+        {
+          "actionId": "a",
+          "reason": "当前掌握度 90%",
+          "code": "mastery",
+          "supported": true
+        }
+      ],
+      "failures": []
+    },
+    {
+      "caseId": "high-confidence-error-correction",
+      "group": "retention",
+      "expectedTop1Ids": [
+        "a"
+      ],
+      "actualTop1Id": "a",
+      "top1Hit": true,
+      "deterministic": true,
+      "actions": [
+        {
+          "id": "a",
+          "knowledgePointId": "a",
+          "subjectId": "s",
+          "subjectName": "Course",
+          "topicTitle": "a",
+          "title": "学习 a",
+          "actionType": "tutor",
+          "state": "at_risk",
+          "masteryScore": 0.4,
+          "estimatedMinutes": 25,
+          "priorityScore": 0.438,
+          "reasons": [
+            "近期高信心答错，建议纠正概念理解",
+            "当前掌握度 40%"
+          ],
+          "coldStart": false,
+          "href": "/guided-study?topicId=a",
+          "scoreComponents": {
+            "masteryGap": 0.6,
+            "practiceLoss": 0.5,
+            "forgetting": 0.0,
+            "dialogueConfusion": 0.0,
+            "importance": 0.4,
+            "dataConfidence": 0.56,
+            "confidenceMismatch": 0.0,
+            "examUrgency": 0,
+            "dueReview": 0
+          }
+        },
+        {
+          "id": "b",
+          "knowledgePointId": "b",
+          "subjectId": "s",
+          "subjectName": "Course",
+          "topicTitle": "b",
+          "title": "复习 b",
+          "actionType": "practice",
+          "state": "practicing",
+          "masteryScore": 0.4,
+          "estimatedMinutes": 15,
+          "priorityScore": 0.348,
+          "reasons": [
+            "当前掌握度 40%"
+          ],
+          "coldStart": false,
+          "href": "/guided-study?topicId=b",
+          "scoreComponents": {
+            "masteryGap": 0.6,
+            "practiceLoss": 0.5,
+            "forgetting": 0.0,
+            "dialogueConfusion": 0.0,
+            "importance": 0.4,
+            "dataConfidence": 0.56,
+            "confidenceMismatch": 0.0,
+            "examUrgency": 0,
+            "dueReview": 0
+          }
+        }
+      ],
+      "claims": [
+        {
+          "actionId": "a",
+          "reason": "近期高信心答错，建议纠正概念理解",
+          "code": "misconception",
+          "supported": true
+        },
+        {
+          "actionId": "a",
+          "reason": "当前掌握度 40%",
+          "code": "mastery",
+          "supported": true
+        },
+        {
+          "actionId": "b",
+          "reason": "当前掌握度 40%",
+          "code": "mastery",
+          "supported": true
+        }
+      ],
+      "failures": []
+    },
+    {
+      "caseId": "flashcard-failure-remains-visible",
+      "group": "retention",
+      "expectedTop1Ids": [
+        "a"
+      ],
+      "actualTop1Id": "a",
+      "top1Hit": true,
+      "deterministic": true,
+      "actions": [
+        {
+          "id": "a",
+          "knowledgePointId": "a",
+          "subjectId": "s",
+          "subjectName": "Course",
+          "topicTitle": "a",
+          "title": "复习 a",
+          "actionType": "practice",
+          "state": "at_risk",
+          "masteryScore": 0.9,
+          "estimatedMinutes": 15,
+          "priorityScore": 0.198,
+          "reasons": [
+            "闪卡回忆失败，需要重新评估",
+            "当前掌握度 90%"
+          ],
+          "coldStart": false,
+          "href": "/guided-study?topicId=a",
+          "scoreComponents": {
+            "masteryGap": 0.1,
+            "practiceLoss": 0.5,
+            "forgetting": 0.0,
+            "dialogueConfusion": 0.0,
+            "importance": 0.4,
+            "dataConfidence": 0.56,
+            "confidenceMismatch": 0.0,
+            "examUrgency": 0,
+            "dueReview": 0
+          }
+        }
+      ],
+      "claims": [
+        {
+          "actionId": "a",
+          "reason": "闪卡回忆失败，需要重新评估",
+          "code": "recall_risk",
+          "supported": true
+        },
+        {
+          "actionId": "a",
+          "reason": "当前掌握度 90%",
+          "code": "mastery",
+          "supported": true
+        }
+      ],
+      "failures": []
+    },
+    {
+      "caseId": "near-exam-scoped-topic-first",
+      "group": "exam",
+      "expectedTop1Ids": [
+        "b"
+      ],
+      "actualTop1Id": "b",
+      "top1Hit": true,
+      "deterministic": true,
+      "actions": [
+        {
+          "id": "b",
+          "knowledgePointId": "b",
+          "subjectId": "s",
+          "subjectName": "Course",
+          "topicTitle": "b",
+          "title": "复习 b",
+          "actionType": "practice",
+          "state": "practicing",
+          "masteryScore": 0.4,
+          "estimatedMinutes": 15,
+          "priorityScore": 0.5667,
+          "reasons": [
+            "e：3 天后考试，本知识点在考试范围内",
+            "当前掌握度 40%"
+          ],
+          "coldStart": false,
+          "href": "/guided-study?topicId=b&examEventId=e",
+          "scoreComponents": {
+            "masteryGap": 0.6,
+            "practiceLoss": 0.5,
+            "forgetting": 0.0,
+            "dialogueConfusion": 0.0,
+            "importance": 0.4,
+            "dataConfidence": 0.56,
+            "confidenceMismatch": 0.0,
+            "examUrgency": 0.7857,
+            "dueReview": 0
+          }
+        },
+        {
+          "id": "a",
+          "knowledgePointId": "a",
+          "subjectId": "s",
+          "subjectName": "Course",
+          "topicTitle": "a",
+          "title": "复习 a",
+          "actionType": "practice",
+          "state": "practicing",
+          "masteryScore": 0.4,
+          "estimatedMinutes": 15,
+          "priorityScore": 0.348,
+          "reasons": [
+            "当前掌握度 40%"
+          ],
+          "coldStart": false,
+          "href": "/guided-study?topicId=a",
+          "scoreComponents": {
+            "masteryGap": 0.6,
+            "practiceLoss": 0.5,
+            "forgetting": 0.0,
+            "dialogueConfusion": 0.0,
+            "importance": 0.4,
+            "dataConfidence": 0.56,
+            "confidenceMismatch": 0.0,
+            "examUrgency": 0,
+            "dueReview": 0
+          }
+        }
+      ],
+      "claims": [
+        {
+          "actionId": "b",
+          "reason": "e：3 天后考试，本知识点在考试范围内",
+          "code": "exam",
+          "supported": true
+        },
+        {
+          "actionId": "b",
+          "reason": "当前掌握度 40%",
+          "code": "mastery",
+          "supported": true
+        },
+        {
+          "actionId": "a",
+          "reason": "当前掌握度 40%",
+          "code": "mastery",
+          "supported": true
+        }
+      ],
+      "failures": []
+    },
+    {
+      "caseId": "exam-weight-prioritizes-syllabus",
+      "group": "exam",
+      "expectedTop1Ids": [
+        "b"
+      ],
+      "actualTop1Id": "b",
+      "top1Hit": true,
+      "deterministic": true,
+      "actions": [
+        {
+          "id": "b",
+          "knowledgePointId": "b",
+          "subjectId": "s",
+          "subjectName": "Course",
+          "topicTitle": "b",
+          "title": "复习 b",
+          "actionType": "practice",
+          "state": "practicing",
+          "masteryScore": 0.4,
+          "estimatedMinutes": 15,
+          "priorityScore": 0.5667,
+          "reasons": [
+            "e：3 天后考试，本知识点在考试范围内",
+            "当前掌握度 40%"
+          ],
+          "coldStart": false,
+          "href": "/guided-study?topicId=b&examEventId=e",
+          "scoreComponents": {
+            "masteryGap": 0.6,
+            "practiceLoss": 0.5,
+            "forgetting": 0.0,
+            "dialogueConfusion": 0.0,
+            "importance": 0.4,
+            "dataConfidence": 0.56,
+            "confidenceMismatch": 0.0,
+            "examUrgency": 0.7857,
+            "dueReview": 0
+          }
+        },
+        {
+          "id": "a",
+          "knowledgePointId": "a",
+          "subjectId": "s",
+          "subjectName": "Course",
+          "topicTitle": "a",
+          "title": "复习 a",
+          "actionType": "practice",
+          "state": "practicing",
+          "masteryScore": 0.4,
+          "estimatedMinutes": 15,
+          "priorityScore": 0.3917,
+          "reasons": [
+            "e：3 天后考试，本知识点在考试范围内",
+            "当前掌握度 40%"
+          ],
+          "coldStart": false,
+          "href": "/guided-study?topicId=a&examEventId=e",
+          "scoreComponents": {
+            "masteryGap": 0.6,
+            "practiceLoss": 0.5,
+            "forgetting": 0.0,
+            "dialogueConfusion": 0.0,
+            "importance": 0.4,
+            "dataConfidence": 0.56,
+            "confidenceMismatch": 0.0,
+            "examUrgency": 0.1571,
+            "dueReview": 0
+          }
+        }
+      ],
+      "claims": [
+        {
+          "actionId": "b",
+          "reason": "e：3 天后考试，本知识点在考试范围内",
+          "code": "exam",
+          "supported": true
+        },
+        {
+          "actionId": "b",
+          "reason": "当前掌握度 40%",
+          "code": "mastery",
+          "supported": true
+        },
+        {
+          "actionId": "a",
+          "reason": "e：3 天后考试，本知识点在考试范围内",
+          "code": "exam",
+          "supported": true
+        },
+        {
+          "actionId": "a",
+          "reason": "当前掌握度 40%",
+          "code": "mastery",
+          "supported": true
+        }
+      ],
+      "failures": []
+    },
+    {
+      "caseId": "nearest-weighted-exam-first",
+      "group": "exam",
+      "expectedTop1Ids": [
+        "b"
+      ],
+      "actualTop1Id": "b",
+      "top1Hit": true,
+      "deterministic": true,
+      "actions": [
+        {
+          "id": "b",
+          "knowledgePointId": "b",
+          "subjectId": "s",
+          "subjectName": "Course",
+          "topicTitle": "b",
+          "title": "复习 b",
+          "actionType": "practice",
+          "state": "practicing",
+          "masteryScore": 0.4,
+          "estimatedMinutes": 15,
+          "priorityScore": 0.6065,
+          "reasons": [
+            "near：1 天后考试，本知识点在考试范围内",
+            "当前掌握度 40%"
+          ],
+          "coldStart": false,
+          "href": "/guided-study?topicId=b&examEventId=near",
+          "scoreComponents": {
+            "masteryGap": 0.6,
+            "practiceLoss": 0.5,
+            "forgetting": 0.0,
+            "dialogueConfusion": 0.0,
+            "importance": 0.4,
+            "dataConfidence": 0.56,
+            "confidenceMismatch": 0.0,
+            "examUrgency": 0.9286,
+            "dueReview": 0
+          }
+        },
+        {
+          "id": "a",
+          "knowledgePointId": "a",
+          "subjectId": "s",
+          "subjectName": "Course",
+          "topicTitle": "a",
+          "title": "复习 a",
+          "actionType": "practice",
+          "state": "practicing",
+          "masteryScore": 0.4,
+          "estimatedMinutes": 15,
+          "priorityScore": 0.3878,
+          "reasons": [
+            "later：12 天后考试，本知识点在考试范围内",
+            "当前掌握度 40%"
+          ],
+          "coldStart": false,
+          "href": "/guided-study?topicId=a&examEventId=later",
+          "scoreComponents": {
+            "masteryGap": 0.6,
+            "practiceLoss": 0.5,
+            "forgetting": 0.0,
+            "dialogueConfusion": 0.0,
+            "importance": 0.4,
+            "dataConfidence": 0.56,
+            "confidenceMismatch": 0.0,
+            "examUrgency": 0.1429,
+            "dueReview": 0
+          }
+        }
+      ],
+      "claims": [
+        {
+          "actionId": "b",
+          "reason": "near：1 天后考试，本知识点在考试范围内",
+          "code": "exam",
+          "supported": true
+        },
+        {
+          "actionId": "b",
+          "reason": "当前掌握度 40%",
+          "code": "mastery",
+          "supported": true
+        },
+        {
+          "actionId": "a",
+          "reason": "later：12 天后考试，本知识点在考试范围内",
+          "code": "exam",
+          "supported": true
+        },
+        {
+          "actionId": "a",
+          "reason": "当前掌握度 40%",
+          "code": "mastery",
+          "supported": true
+        }
+      ],
+      "failures": []
+    },
+    {
+      "caseId": "expired-exam-no-boost",
+      "group": "scope",
+      "expectedTop1Ids": [
+        "a"
+      ],
+      "actualTop1Id": "a",
+      "top1Hit": true,
+      "deterministic": true,
+      "actions": [
+        {
+          "id": "a",
+          "knowledgePointId": "a",
+          "subjectId": "s",
+          "subjectName": "Course",
+          "topicTitle": "a",
+          "title": "学习 a",
+          "actionType": "tutor",
+          "state": "not_started",
+          "masteryScore": 0.5,
+          "estimatedMinutes": 25,
+          "priorityScore": 0.44,
+          "reasons": [
+            "评估证据不足，先建立学习与诊断基线"
+          ],
+          "coldStart": true,
+          "href": "/guided-study?topicId=a",
+          "scoreComponents": {
+            "masteryGap": 0.5,
+            "practiceLoss": 0.5,
+            "forgetting": 1.0,
+            "dialogueConfusion": 0.0,
+            "importance": 0.4,
+            "dataConfidence": 0.0,
+            "confidenceMismatch": 0.0,
+            "examUrgency": 0,
+            "dueReview": 0
+          }
+        },
+        {
+          "id": "b",
+          "knowledgePointId": "b",
+          "subjectId": "s",
+          "subjectName": "Course",
+          "topicTitle": "b",
+          "title": "学习 b",
+          "actionType": "tutor",
+          "state": "not_started",
+          "masteryScore": 0.5,
+          "estimatedMinutes": 25,
+          "priorityScore": 0.44,
+          "reasons": [
+            "评估证据不足，先建立学习与诊断基线"
+          ],
+          "coldStart": true,
+          "href": "/guided-study?topicId=b",
+          "scoreComponents": {
+            "masteryGap": 0.5,
+            "practiceLoss": 0.5,
+            "forgetting": 1.0,
+            "dialogueConfusion": 0.0,
+            "importance": 0.4,
+            "dataConfidence": 0.0,
+            "confidenceMismatch": 0.0,
+            "examUrgency": 0,
+            "dueReview": 0
+          }
+        }
+      ],
+      "claims": [
+        {
+          "actionId": "a",
+          "reason": "评估证据不足，先建立学习与诊断基线",
+          "code": "cold_start",
+          "supported": true
+        },
+        {
+          "actionId": "b",
+          "reason": "评估证据不足，先建立学习与诊断基线",
+          "code": "cold_start",
+          "supported": true
+        }
+      ],
+      "failures": []
+    },
+    {
+      "caseId": "archived-exam-no-boost",
+      "group": "scope",
+      "expectedTop1Ids": [
+        "a"
+      ],
+      "actualTop1Id": "a",
+      "top1Hit": true,
+      "deterministic": true,
+      "actions": [
+        {
+          "id": "a",
+          "knowledgePointId": "a",
+          "subjectId": "s",
+          "subjectName": "Course",
+          "topicTitle": "a",
+          "title": "学习 a",
+          "actionType": "tutor",
+          "state": "not_started",
+          "masteryScore": 0.5,
+          "estimatedMinutes": 25,
+          "priorityScore": 0.44,
+          "reasons": [
+            "评估证据不足，先建立学习与诊断基线"
+          ],
+          "coldStart": true,
+          "href": "/guided-study?topicId=a",
+          "scoreComponents": {
+            "masteryGap": 0.5,
+            "practiceLoss": 0.5,
+            "forgetting": 1.0,
+            "dialogueConfusion": 0.0,
+            "importance": 0.4,
+            "dataConfidence": 0.0,
+            "confidenceMismatch": 0.0,
+            "examUrgency": 0,
+            "dueReview": 0
+          }
+        },
+        {
+          "id": "b",
+          "knowledgePointId": "b",
+          "subjectId": "s",
+          "subjectName": "Course",
+          "topicTitle": "b",
+          "title": "学习 b",
+          "actionType": "tutor",
+          "state": "not_started",
+          "masteryScore": 0.5,
+          "estimatedMinutes": 25,
+          "priorityScore": 0.44,
+          "reasons": [
+            "评估证据不足，先建立学习与诊断基线"
+          ],
+          "coldStart": true,
+          "href": "/guided-study?topicId=b",
+          "scoreComponents": {
+            "masteryGap": 0.5,
+            "practiceLoss": 0.5,
+            "forgetting": 1.0,
+            "dialogueConfusion": 0.0,
+            "importance": 0.4,
+            "dataConfidence": 0.0,
+            "confidenceMismatch": 0.0,
+            "examUrgency": 0,
+            "dueReview": 0
+          }
+        }
+      ],
+      "claims": [
+        {
+          "actionId": "a",
+          "reason": "评估证据不足，先建立学习与诊断基线",
+          "code": "cold_start",
+          "supported": true
+        },
+        {
+          "actionId": "b",
+          "reason": "评估证据不足，先建立学习与诊断基线",
+          "code": "cold_start",
+          "supported": true
+        }
+      ],
+      "failures": []
+    },
+    {
+      "caseId": "zero-weight-not-in-scope",
+      "group": "scope",
+      "expectedTop1Ids": [
+        "a"
+      ],
+      "actualTop1Id": "a",
+      "top1Hit": true,
+      "deterministic": true,
+      "actions": [
+        {
+          "id": "a",
+          "knowledgePointId": "a",
+          "subjectId": "s",
+          "subjectName": "Course",
+          "topicTitle": "a",
+          "title": "学习 a",
+          "actionType": "tutor",
+          "state": "not_started",
+          "masteryScore": 0.5,
+          "estimatedMinutes": 25,
+          "priorityScore": 0.44,
+          "reasons": [
+            "评估证据不足，先建立学习与诊断基线"
+          ],
+          "coldStart": true,
+          "href": "/guided-study?topicId=a",
+          "scoreComponents": {
+            "masteryGap": 0.5,
+            "practiceLoss": 0.5,
+            "forgetting": 1.0,
+            "dialogueConfusion": 0.0,
+            "importance": 0.4,
+            "dataConfidence": 0.0,
+            "confidenceMismatch": 0.0,
+            "examUrgency": 0,
+            "dueReview": 0
+          }
+        },
+        {
+          "id": "b",
+          "knowledgePointId": "b",
+          "subjectId": "s",
+          "subjectName": "Course",
+          "topicTitle": "b",
+          "title": "学习 b",
+          "actionType": "tutor",
+          "state": "not_started",
+          "masteryScore": 0.5,
+          "estimatedMinutes": 25,
+          "priorityScore": 0.44,
+          "reasons": [
+            "评估证据不足，先建立学习与诊断基线"
+          ],
+          "coldStart": true,
+          "href": "/guided-study?topicId=b",
+          "scoreComponents": {
+            "masteryGap": 0.5,
+            "practiceLoss": 0.5,
+            "forgetting": 1.0,
+            "dialogueConfusion": 0.0,
+            "importance": 0.4,
+            "dataConfidence": 0.0,
+            "confidenceMismatch": 0.0,
+            "examUrgency": 0,
+            "dueReview": 0
+          }
+        }
+      ],
+      "claims": [
+        {
+          "actionId": "a",
+          "reason": "评估证据不足，先建立学习与诊断基线",
+          "code": "cold_start",
+          "supported": true
+        },
+        {
+          "actionId": "b",
+          "reason": "评估证据不足，先建立学习与诊断基线",
+          "code": "cold_start",
+          "supported": true
+        }
+      ],
+      "failures": []
+    },
+    {
+      "caseId": "archived-and-foreign-topics-excluded",
+      "group": "scope",
+      "expectedTop1Ids": [
+        "setup:s"
+      ],
+      "actualTop1Id": "setup:s",
+      "top1Hit": true,
+      "deterministic": true,
+      "actions": [
+        {
+          "id": "setup:s",
+          "knowledgePointId": null,
+          "subjectId": "s",
+          "subjectName": "Course",
+          "topicTitle": null,
+          "title": "建立 Course 的课程目录",
+          "actionType": "setup",
+          "state": "not_started",
+          "masteryScore": null,
+          "estimatedMinutes": 10,
+          "priorityScore": 0.3,
+          "reasons": [
+            "尚无课程知识点，请上传资料或添加课程结构"
+          ],
+          "coldStart": true,
+          "href": "/course",
+          "scoreComponents": {}
+        }
+      ],
+      "claims": [
+        {
+          "actionId": "setup:s",
+          "reason": "尚无课程知识点，请上传资料或添加课程结构",
+          "code": "setup",
+          "supported": true
+        }
+      ],
+      "failures": []
+    },
+    {
+      "caseId": "cross-subject-exam-map-rejected",
+      "group": "scope",
+      "expectedTop1Ids": [
+        "b"
+      ],
+      "actualTop1Id": "b",
+      "top1Hit": true,
+      "deterministic": true,
+      "actions": [
+        {
+          "id": "b",
+          "knowledgePointId": "b",
+          "subjectId": "other",
+          "subjectName": "Other Course",
+          "topicTitle": "b",
+          "title": "学习 b",
+          "actionType": "tutor",
+          "state": "not_started",
+          "masteryScore": 0.5,
+          "estimatedMinutes": 25,
+          "priorityScore": 0.44,
+          "reasons": [
+            "评估证据不足，先建立学习与诊断基线"
+          ],
+          "coldStart": true,
+          "href": "/guided-study?topicId=b",
+          "scoreComponents": {
+            "masteryGap": 0.5,
+            "practiceLoss": 0.5,
+            "forgetting": 1.0,
+            "dialogueConfusion": 0.0,
+            "importance": 0.4,
+            "dataConfidence": 0.0,
+            "confidenceMismatch": 0.0,
+            "examUrgency": 0,
+            "dueReview": 0
+          }
+        },
+        {
+          "id": "a",
+          "knowledgePointId": "a",
+          "subjectId": "s",
+          "subjectName": "Course",
+          "topicTitle": "a",
+          "title": "学习 a",
+          "actionType": "tutor",
+          "state": "not_started",
+          "masteryScore": 0.5,
+          "estimatedMinutes": 25,
+          "priorityScore": 0.44,
+          "reasons": [
+            "评估证据不足，先建立学习与诊断基线"
+          ],
+          "coldStart": true,
+          "href": "/guided-study?topicId=a",
+          "scoreComponents": {
+            "masteryGap": 0.5,
+            "practiceLoss": 0.5,
+            "forgetting": 1.0,
+            "dialogueConfusion": 0.0,
+            "importance": 0.4,
+            "dataConfidence": 0.0,
+            "confidenceMismatch": 0.0,
+            "examUrgency": 0,
+            "dueReview": 0
+          }
+        }
+      ],
+      "claims": [
+        {
+          "actionId": "b",
+          "reason": "评估证据不足，先建立学习与诊断基线",
+          "code": "cold_start",
+          "supported": true
+        },
+        {
+          "actionId": "a",
+          "reason": "评估证据不足，先建立学习与诊断基线",
+          "code": "cold_start",
+          "supported": true
+        }
+      ],
+      "failures": []
+    },
+    {
+      "caseId": "foreign-event-excluded",
+      "group": "scope",
+      "expectedTop1Ids": [
+        "a"
+      ],
+      "actualTop1Id": "a",
+      "top1Hit": true,
+      "deterministic": true,
+      "actions": [
+        {
+          "id": "a",
+          "knowledgePointId": "a",
+          "subjectId": "s",
+          "subjectName": "Course",
+          "topicTitle": "a",
+          "title": "学习 a",
+          "actionType": "tutor",
+          "state": "not_started",
+          "masteryScore": 0.5,
+          "estimatedMinutes": 25,
+          "priorityScore": 0.44,
+          "reasons": [
+            "评估证据不足，先建立学习与诊断基线"
+          ],
+          "coldStart": true,
+          "href": "/guided-study?topicId=a",
+          "scoreComponents": {
+            "masteryGap": 0.5,
+            "practiceLoss": 0.5,
+            "forgetting": 1.0,
+            "dialogueConfusion": 0.0,
+            "importance": 0.4,
+            "dataConfidence": 0.0,
+            "confidenceMismatch": 0.0,
+            "examUrgency": 0,
+            "dueReview": 0
+          }
+        }
+      ],
+      "claims": [
+        {
+          "actionId": "a",
+          "reason": "评估证据不足，先建立学习与诊断基线",
+          "code": "cold_start",
+          "supported": true
+        }
+      ],
+      "failures": []
+    },
+    {
+      "caseId": "shanghai-day-boundary-exam-today",
+      "group": "time",
+      "expectedTop1Ids": [
+        "a"
+      ],
+      "actualTop1Id": "a",
+      "top1Hit": true,
+      "deterministic": true,
+      "actions": [
+        {
+          "id": "a",
+          "knowledgePointId": "a",
+          "subjectId": "s",
+          "subjectName": "Course",
+          "topicTitle": "a",
+          "title": "学习 a",
+          "actionType": "tutor",
+          "state": "not_started",
+          "masteryScore": 0.5,
+          "estimatedMinutes": 25,
+          "priorityScore": 0.792,
+          "reasons": [
+            "e：今天考试，本知识点在考试范围内",
+            "评估证据不足，先建立学习与诊断基线"
+          ],
+          "coldStart": true,
+          "href": "/guided-study?topicId=a&examEventId=e",
+          "scoreComponents": {
+            "masteryGap": 0.5,
+            "practiceLoss": 0.5,
+            "forgetting": 1.0,
+            "dialogueConfusion": 0.0,
+            "importance": 0.4,
+            "dataConfidence": 0.0,
+            "confidenceMismatch": 0.0,
+            "examUrgency": 1.0,
+            "dueReview": 0
+          }
+        }
+      ],
+      "claims": [
+        {
+          "actionId": "a",
+          "reason": "e：今天考试，本知识点在考试范围内",
+          "code": "exam",
+          "supported": true
+        },
+        {
+          "actionId": "a",
+          "reason": "评估证据不足，先建立学习与诊断基线",
+          "code": "cold_start",
+          "supported": true
+        }
+      ],
+      "failures": []
+    },
+    {
+      "caseId": "stable-topic-tie",
+      "group": "determinism",
+      "expectedTop1Ids": [
+        "a"
+      ],
+      "actualTop1Id": "a",
+      "top1Hit": true,
+      "deterministic": true,
+      "actions": [
+        {
+          "id": "a",
+          "knowledgePointId": "a",
+          "subjectId": "s",
+          "subjectName": "Course",
+          "topicTitle": "a",
+          "title": "学习 a",
+          "actionType": "tutor",
+          "state": "not_started",
+          "masteryScore": 0.5,
+          "estimatedMinutes": 25,
+          "priorityScore": 0.44,
+          "reasons": [
+            "评估证据不足，先建立学习与诊断基线"
+          ],
+          "coldStart": true,
+          "href": "/guided-study?topicId=a",
+          "scoreComponents": {
+            "masteryGap": 0.5,
+            "practiceLoss": 0.5,
+            "forgetting": 1.0,
+            "dialogueConfusion": 0.0,
+            "importance": 0.4,
+            "dataConfidence": 0.0,
+            "confidenceMismatch": 0.0,
+            "examUrgency": 0,
+            "dueReview": 0
+          }
+        },
+        {
+          "id": "b",
+          "knowledgePointId": "b",
+          "subjectId": "s",
+          "subjectName": "Course",
+          "topicTitle": "b",
+          "title": "学习 b",
+          "actionType": "tutor",
+          "state": "not_started",
+          "masteryScore": 0.5,
+          "estimatedMinutes": 25,
+          "priorityScore": 0.44,
+          "reasons": [
+            "评估证据不足，先建立学习与诊断基线"
+          ],
+          "coldStart": true,
+          "href": "/guided-study?topicId=b",
+          "scoreComponents": {
+            "masteryGap": 0.5,
+            "practiceLoss": 0.5,
+            "forgetting": 1.0,
+            "dialogueConfusion": 0.0,
+            "importance": 0.4,
+            "dataConfidence": 0.0,
+            "confidenceMismatch": 0.0,
+            "examUrgency": 0,
+            "dueReview": 0
+          }
+        }
+      ],
+      "claims": [
+        {
+          "actionId": "a",
+          "reason": "评估证据不足，先建立学习与诊断基线",
+          "code": "cold_start",
+          "supported": true
+        },
+        {
+          "actionId": "b",
+          "reason": "评估证据不足，先建立学习与诊断基线",
+          "code": "cold_start",
+          "supported": true
+        }
+      ],
+      "failures": []
+    },
+    {
+      "caseId": "tasks-stable-over-page-limit",
+      "group": "determinism",
+      "expectedTop1Ids": [
+        "a"
+      ],
+      "actualTop1Id": "a",
+      "top1Hit": true,
+      "deterministic": true,
+      "actions": [
+        {
+          "id": "a",
+          "knowledgePointId": "a",
+          "subjectId": "s",
+          "subjectName": "Course",
+          "topicTitle": "a",
+          "title": "学习 a",
+          "actionType": "tutor",
+          "state": "not_started",
+          "masteryScore": 0.5,
+          "estimatedMinutes": 25,
+          "priorityScore": 0.44,
+          "reasons": [
+            "评估证据不足，先建立学习与诊断基线"
+          ],
+          "coldStart": true,
+          "href": "/guided-study?topicId=a",
+          "scoreComponents": {
+            "masteryGap": 0.5,
+            "practiceLoss": 0.5,
+            "forgetting": 1.0,
+            "dialogueConfusion": 0.0,
+            "importance": 0.4,
+            "dataConfidence": 0.0,
+            "confidenceMismatch": 0.0,
+            "examUrgency": 0,
+            "dueReview": 0
+          }
+        },
+        {
+          "id": "b",
+          "knowledgePointId": "b",
+          "subjectId": "s",
+          "subjectName": "Course",
+          "topicTitle": "b",
+          "title": "学习 b",
+          "actionType": "tutor",
+          "state": "not_started",
+          "masteryScore": 0.5,
+          "estimatedMinutes": 25,
+          "priorityScore": 0.44,
+          "reasons": [
+            "评估证据不足，先建立学习与诊断基线"
+          ],
+          "coldStart": true,
+          "href": "/guided-study?topicId=b",
+          "scoreComponents": {
+            "masteryGap": 0.5,
+            "practiceLoss": 0.5,
+            "forgetting": 1.0,
+            "dialogueConfusion": 0.0,
+            "importance": 0.4,
+            "dataConfidence": 0.0,
+            "confidenceMismatch": 0.0,
+            "examUrgency": 0,
+            "dueReview": 0
+          }
+        }
+      ],
+      "claims": [
+        {
+          "actionId": "a",
+          "reason": "评估证据不足，先建立学习与诊断基线",
+          "code": "cold_start",
+          "supported": true
+        },
+        {
+          "actionId": "b",
+          "reason": "评估证据不足，先建立学习与诊断基线",
+          "code": "cold_start",
+          "supported": true
+        }
+      ],
+      "failures": []
+    },
+    {
+      "caseId": "explicit-action-limit",
+      "group": "determinism",
+      "expectedTop1Ids": [
+        "a"
+      ],
+      "actualTop1Id": "a",
+      "top1Hit": true,
+      "deterministic": true,
+      "actions": [
+        {
+          "id": "a",
+          "knowledgePointId": "a",
+          "subjectId": "s",
+          "subjectName": "Course",
+          "topicTitle": "a",
+          "title": "学习 a",
+          "actionType": "tutor",
+          "state": "not_started",
+          "masteryScore": 0.5,
+          "estimatedMinutes": 25,
+          "priorityScore": 0.44,
+          "reasons": [
+            "评估证据不足，先建立学习与诊断基线"
+          ],
+          "coldStart": true,
+          "href": "/guided-study?topicId=a",
+          "scoreComponents": {
+            "masteryGap": 0.5,
+            "practiceLoss": 0.5,
+            "forgetting": 1.0,
+            "dialogueConfusion": 0.0,
+            "importance": 0.4,
+            "dataConfidence": 0.0,
+            "confidenceMismatch": 0.0,
+            "examUrgency": 0,
+            "dueReview": 0
+          }
+        }
+      ],
+      "claims": [
+        {
+          "actionId": "a",
+          "reason": "评估证据不足，先建立学习与诊断基线",
+          "code": "cold_start",
+          "supported": true
+        }
+      ],
+      "failures": []
+    }
+  ]
+}

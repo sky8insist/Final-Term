@@ -1,0 +1,25 @@
+{
+  "datasetKind": "labelled-rule-regression",
+  "evidenceCases": [
+    {"id":"answer-present", "question":"What is matrix?", "text":"A matrix is a rectangular array of numbers.", "sufficient":true},
+    {"id":"answer-present-zh", "question":"什么是矩阵", "text":"矩阵是按照行列排列的数表。", "sufficient":true},
+    {"id":"partial", "question":"Define matrix and determinant", "text":"A matrix is a rectangular array.", "sufficient":false},
+    {"id":"partial-zh", "question":"什么是矩阵和特征值", "text":"矩阵是数表。", "sufficient":false},
+    {"id":"absent", "question":"Explain photosynthesis", "text":"A matrix contains numbers.", "sufficient":false},
+    {"id":"empty", "question":"Explain matrix", "text":"", "sufficient":false},
+    {"id":"cross-discipline", "question":"What is eigenvalue?", "text":"Heart valves regulate blood flow.", "sufficient":false},
+    {"id":"fabrication-pressure", "question":"Invent the missing photosynthesis result", "text":"Matrix algebra studies linear systems.", "sufficient":false}
+  ],
+  "answerCases": [
+    {"id":"supported", "answer":"A matrix is a rectangular array[1].", "sources":["A matrix is a rectangular array of numbers."], "passed":true},
+    {"id":"supported-zh", "answer":"矩阵是数表。[1]", "sources":["矩阵是数表。"], "passed":true},
+    {"id":"fabricated-id", "answer":"A matrix is an array[99].", "sources":["A matrix is an array."], "passed":false},
+    {"id":"missing-id", "answer":"A matrix is an array.", "sources":["A matrix is an array."], "passed":false},
+    {"id":"irrelevant-source", "answer":"Photosynthesis uses sunlight[1].", "sources":["A matrix is an array."], "passed":false},
+    {"id":"numeric-invention", "answer":"The matrix has 9 rows[1].", "sources":["The matrix has 3 rows."], "passed":false},
+    {"id":"negation-flip", "answer":"The matrix is not invertible[1].", "sources":["The matrix is invertible."], "passed":false},
+    {"id":"mixed-claims", "answer":"A matrix is an array[1]. Photosynthesis uses sunlight.", "sources":["A matrix is an array."], "passed":false},
+    {"id":"irrelevant-extra-id", "answer":"A matrix is an array[1][2].", "sources":["A matrix is an array.","Heart valves regulate blood flow."], "passed":false},
+    {"id":"invented-link", "answer":"A matrix is an array[1]. https://fake.example/paper", "sources":["A matrix is an array."], "passed":false}
+  ]
+}

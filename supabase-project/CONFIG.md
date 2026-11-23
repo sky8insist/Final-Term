@@ -34,7 +34,7 @@ Each table has five columns:
 |---|---|
 | **Variable** | Exact env var name as the service's code reads it. Names are case-sensitive. |
 | **Type** | Closed vocabulary: `string`, `integer`, `number`, `boolean`, `JSON`, `enum`, `URL`, `path`, `JWT`, `JWKS`. Numeric forms carry a unit hint where one applies - e.g. `integer (seconds)`, `integer (ms)`, `integer (bytes)`, `integer (MB)`, `integer (count)`, `number (ratio)`. String forms with a semantic hint: `string (duration)` (Go `time.Duration` strings like `10s`, `5m`, distinct from `integer (seconds)`), `string (regex)`, `string (CSV)`. |
-| **Set by (CLI, Self-hosted)** | `Both` if the variable is set inside the corresponding container when you run `supabase start` (see the [Local development & CLI](https://supabase.com/docs/guides/local-development)) *and* in `docker/docker-compose.yml` / `docker/.env.example`. `Self-hosted` if only in the self-hosted compose/.env (including inside commented-out lines). `CLI` if only in the CLI runtime env. Blank if neither - the variable is documented because the service's code reads it, but no Supabase-side config pre-wires it. |
+| **Set by (CLI, Self-hosted)** | `Both` if the variable is set inside the corresponding container when you run `supabase start` (see the [Local development & CLI](https://supabase.com/docs/guides/local-development)) *and* in `docker/docker-compose.yml` / `docker/config.env.template`. `Self-hosted` if only in the self-hosted compose/.env (including inside commented-out lines). `CLI` if only in the CLI runtime env. Blank if neither - the variable is documented because the service's code reads it, but no Supabase-side config pre-wires it. |
 | **Description** | What the variable controls. |
 | **Notes** | Default value, requirement, deprecation, alias, or scope. |
 
@@ -83,8 +83,8 @@ The image tags below are pinned in `docker-compose.yml` at the time of this docu
 
 | Variable | Type | Set by | Description | Notes |
 |---|---|---|---|---|
-| `DEFAULT_ORGANIZATION_NAME` | string | Self-hosted | Name shown for the single default organization on the dashboard. | Mapped from `STUDIO_DEFAULT_ORGANIZATION` in `.env.example`. Default: `Default Organization`. |
-| `DEFAULT_PROJECT_NAME` | string | Self-hosted | Name shown for the single default project on the dashboard. | Mapped from `STUDIO_DEFAULT_PROJECT` in `.env.example`. Default: `Default Project`. |
+| `DEFAULT_ORGANIZATION_NAME` | string | Self-hosted | Name shown for the single default organization on the dashboard. | Mapped from `STUDIO_DEFAULT_ORGANIZATION` in `config.env.template`. Default: `Default Organization`. |
+| `DEFAULT_PROJECT_NAME` | string | Self-hosted | Name shown for the single default project on the dashboard. | Mapped from `STUDIO_DEFAULT_PROJECT` in `config.env.template`. Default: `Default Project`. |
 | `HOSTNAME` | string | Both | Network interface Next.js binds to inside the container. | Set to `0.0.0.0` so the container is reachable from outside. |
 | `POSTGRES_DB` | string | Self-hosted | Postgres database name used for Studio's internal connections. | Default: `postgres`. |
 | `POSTGRES_HOST` | string | Self-hosted | Postgres host (service name in compose network). | Default: `db`. |
@@ -100,7 +100,7 @@ The image tags below are pinned in `docker-compose.yml` at the time of this docu
 
 | Variable | Type | Set by | Description | Notes |
 |---|---|---|---|---|
-| `AUTH_JWT_SECRET` | string | Both | HS256 JWT secret used to mint/verify legacy API keys; surfaced to the UI for "JWT settings" and PostgREST config. | Mapped from `JWT_SECRET` in `.env.example`. Must be at least 32 characters. |
+| `AUTH_JWT_SECRET` | string | Both | HS256 JWT secret used to mint/verify legacy API keys; surfaced to the UI for "JWT settings" and PostgREST config. | Mapped from `JWT_SECRET` in `config.env.template`. Must be at least 32 characters. |
 | `SUPABASE_ANON_KEY` | string | Both | Anon API key surfaced in the Project API Settings page and used by in-dashboard clients. | Mapped from `ANON_KEY`. Supports `_FILE` suffix for Docker secrets. |
 | `SUPABASE_SERVICE_KEY` | string | Both | Service-role API key surfaced in the Project API Settings page. | Mapped from `SERVICE_ROLE_KEY`. Supports `_FILE` suffix for Docker secrets. Keep secret. |
 
@@ -1230,7 +1230,7 @@ The fields below are repeated for each provider. Substitute `<PROVIDER>` with on
 | `SUPABASE_SERVICE_ROLE_KEY` | JWT | Both | `service_role` API key (full database access). Injected for user functions for privileged calls. | Injected for user functions |
 | `SUPABASE_URL` | URL | Both | Internal Supabase API URL (Kong gateway hostname in self-hosted setups). Injected for user functions. | Injected for user functions |
 | `V8_FLAGS` | string | | Space-separated V8 command-line flags applied at startup (e.g. `--max-old-space-size=256`). | Read by `crates/base/src/runtime/mod.rs` |
-| `VERIFY_JWT` | boolean | Self-hosted | If `true`, the bundled main service rejects requests whose JWT does not verify against `JWT_SECRET`/`SUPABASE_JWKS`. Applies to all functions. | Read by `docker/volumes/functions/main/index.ts`; supplied via `FUNCTIONS_VERIFY_JWT` in `.env.example` |
+| `VERIFY_JWT` | boolean | Self-hosted | If `true`, the bundled main service rejects requests whose JWT does not verify against `JWT_SECRET`/`SUPABASE_JWKS`. Applies to all functions. | Read by `docker/volumes/functions/main/index.ts`; supplied via `FUNCTIONS_VERIFY_JWT` in `config.env.template` |
 
 ---
 
@@ -1380,8 +1380,8 @@ The fields below are repeated for each provider. Substitute `<PROVIDER>` with on
 
 | Variable | Type | Set by | Description | Notes |
 |---|---|---|---|---|
-| `JWT_SECRET` | string | Both | HS256 secret stored as `app.settings.jwt_secret` on the `postgres` database. Read by `volumes/db/jwt.sql`. PostgREST and pgjwt-using functions read it via `current_setting()`. | Required. Sourced from `JWT_SECRET` in `.env.example` |
-| `JWT_EXP` | integer (seconds) | Both | Default JWT expiry (seconds) stored as `app.settings.jwt_exp` on the `postgres` database. Read by `volumes/db/jwt.sql`. | Sourced from `JWT_EXPIRY` in `.env.example` |
+| `JWT_SECRET` | string | Both | HS256 secret stored as `app.settings.jwt_secret` on the `postgres` database. Read by `volumes/db/jwt.sql`. PostgREST and pgjwt-using functions read it via `current_setting()`. | Required. Sourced from `JWT_SECRET` in `config.env.template` |
+| `JWT_EXP` | integer (seconds) | Both | Default JWT expiry (seconds) stored as `app.settings.jwt_exp` on the `postgres` database. Read by `volumes/db/jwt.sql`. | Sourced from `JWT_EXPIRY` in `config.env.template` |
 
 ---
 

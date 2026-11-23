@@ -31,7 +31,7 @@ def test_rag_can_answer_from_cited_external_source_when_material_is_empty(monkey
     async def fake_generate(prompt, **_kwargs):
         assert "外部补充上下文" in prompt
         assert "矩阵表示线性变换" in prompt
-        return "外部补充：矩阵可以表示线性变换。"
+        return "矩阵表示线性变换[1]。"
     monkeypatch.setattr(rag_service, "search_public_knowledge_async", fake_search)
     monkeypatch.setattr(rag_service, "generate_text_async", fake_generate)
     monkeypatch.setattr(rag_service.memory_service, "record_qa_history", lambda **_: {"id": "msg"})
@@ -54,7 +54,7 @@ def test_rag_does_not_search_public_platform_when_material_is_sufficient(monkeyp
     async def forbidden_search(_query):
         raise AssertionError("public search must only be a fallback")
     async def fake_generate(_prompt, **_kwargs):
-        return "根据课程资料回答"
+        return "矩阵定义[1]。"
     monkeypatch.setattr(rag_service, "search_public_knowledge_async", forbidden_search)
     monkeypatch.setattr(rag_service, "generate_text_async", fake_generate)
     monkeypatch.setattr(rag_service.memory_service, "record_qa_history", lambda **_: {"id": "msg"})
@@ -62,4 +62,4 @@ def test_rag_does_not_search_public_platform_when_material_is_sufficient(monkeyp
     result = asyncio.run(rag_service.answer_with_rag(
         user_id="u", subject_id="s", question="矩阵是什么", allow_external_knowledge=True,
     ))
-    assert result["answer"] == "根据课程资料回答"
+    assert result["answer"] == "矩阵定义[1]。"

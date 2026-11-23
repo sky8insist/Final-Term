@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   AlertTriangle,
   ArrowRight,
@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { api } from '../../api/client';
 import { useAppStore } from '../../stores/useAppStore';
-import type { ProcessingTask, StudyPhase, StudyPlanOverview, StudyPlanPreview, StudyTask } from '../../types';
+import type { ExamEvent, ProcessingTask, StudyPhase, StudyPlanOverview, StudyPlanPreview, StudyTask } from '../../types';
 
 const minuteOptions = [30, 45, 60, 90];
 
@@ -45,6 +45,7 @@ function sourceLabel(source: string) {
 }
 
 export default function Plan() {
+  const [searchParams] = useSearchParams();
   const subject = useAppStore((state) => state.currentSubject)!;
   const [overview, setOverview] = useState<StudyPlanOverview | null>(null);
   const [targetDate, setTargetDate] = useState('');
@@ -57,6 +58,15 @@ export default function Plan() {
   const [generation, setGeneration] = useState<ProcessingTask | null>(null);
   const [error, setError] = useState('');
   const [selectedDate, setSelectedDate] = useState('');
+  const [examEvents, setExamEvents] = useState<ExamEvent[]>([]);
+  const [examEventId, setExamEventId] = useState('');
+  const [mode, setMode] = useState<'CRAM' | 'STANDARD' | 'COMPREHENSIVE'>('STANDARD');
+  const [availableMinutes, setAvailableMinutes] = useState<Record<string, number>>({});
+  const [overrideDate, setOverrideDate] = useState('');
+  const [overrideMinutes, setOverrideMinutes] = useState(0);
+  const [autoReplan, setAutoReplan] = useState(true);
+  const [replanning, setReplanning] = useState(false);
+  const [events, setEvents] = useState<Array<{ id: string; reason: string; event_type: string; created_at: string }>>([]);
 
   const tomorrow = useMemo(() => {
     const value = new Date();
@@ -66,7 +76,12 @@ export default function Plan() {
 
   async function loadOverview() {
     const data = await api.plan(subject.id);
+    if (subject.id !== useAppStore.getState().currentSubject?.id) return;
     setOverview(data);
+    if (data.activePlan?.version) {
+      const history = await api.planEvents(data.activePlan.id);
+      if (subject.id === useAppStore.getState().currentSubject?.id) setEvents(history);
+    }
     const firstPending = data.tasks.find((task) => !task.completed) || data.tasks[0];
     setSelectedDate((current) => current || firstPending?.scheduledDate || '');
   }
@@ -77,7 +92,16 @@ export default function Plan() {
     setTargetDate('');
     setSelectedDate('');
     setError('');
+    setExamEventId(''); setAvailableMinutes({}); setExamEvents([]); setEvents([]);
+    setGeneration(null); setMode('STANDARD'); setAutoReplan(true);
+    let stopped = false;
+    void api.examGoals(subject.id).then(data => { if (!stopped) {
+      const active=data.exam_events.filter(event => event.status === 'active');setExamEvents(active);
+      const selected=active.find(event=>event.id===searchParams.get('examEventId'));
+      if(selected){setExamEventId(selected.id);setTargetDate(selected.exam_date);}
+    } }).catch(() => { if (!stopped) setError('考试目标加载失败，可刷新或手动填写日期。'); });
     void loadOverview().catch(() => setError('复习计划加载失败，请检查连接后重试。'));
+    return () => { stopped = true; };
   }, [subject.id]);
 
   useEffect(() => {
@@ -85,19 +109,21 @@ export default function Plan() {
       setPreview(null);
       return;
     }
+    let stopped = false;
     const timer = window.setTimeout(async () => {
       setPreviewing(true);
       setError('');
       try {
-        setPreview(await api.previewPlan({ subjectId: subject.id, examDate: targetDate, dailyMinutes, weekendExtra, reserveFinalDay }));
+        const data = await api.previewPlan({ subjectId: subject.id, examDate: targetDate, examEventId: examEventId || undefined, mode, availableMinutes, dailyMinutes, weekendExtra, reserveFinalDay });
+        if (!stopped) setPreview(data);
       } catch (cause) {
-        setError(cause instanceof Error ? cause.message : '无法评估当前计划参数。');
+        if (!stopped) setError(cause instanceof Error ? cause.message : '无法评估当前计划参数。');
       } finally {
-        setPreviewing(false);
+        if (!stopped) setPreviewing(false);
       }
     }, 280);
-    return () => window.clearTimeout(timer);
-  }, [targetDate, dailyMinutes, weekendExtra, reserveFinalDay, subject.id, tomorrow]);
+    return () => { stopped = true; window.clearTimeout(timer); };
+  }, [targetDate, dailyMinutes, weekendExtra, reserveFinalDay, subject.id, tomorrow, examEventId, mode, availableMinutes]);
 
   useEffect(() => {
     if (!generation || !['queued', 'running'].includes(generation.status)) return;
@@ -141,6 +167,7 @@ export default function Plan() {
     try {
       setGeneration(await api.generatePlan({
         subjectId: subject.id,
+        examEventId: examEventId || undefined, mode, availableMinutes, autoReplan,
         examDate: targetDate,
         dailyMinutes,
         weekendExtra,
@@ -174,6 +201,19 @@ export default function Plan() {
     }
   }
 
+  async function lockTask(task: StudyTask) {
+    try { await api.lockTask(task.id, !task.locked); await loadOverview(); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : '锁定设置未保存，请重试。'); }
+  }
+
+  async function replan() {
+    if (!overview?.activePlan) return;
+    setReplanning(true); setError('');
+    try { await api.replan(overview.activePlan.id); await loadOverview(); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : '重排失败，原计划已保留。'); }
+    finally { setReplanning(false); }
+  }
+
   return (
     <div className="plan-page h-full overflow-y-auto bg-slate-50 p-6 text-slate-900 md:p-8">
       <div className="mx-auto max-w-[1480px]">
@@ -196,6 +236,7 @@ export default function Plan() {
         </header>
 
         <section className="plan-no-print rounded-2xl border border-slate-200 bg-white p-6 shadow-sm" aria-labelledby="plan-generator-title">
+          <div className="mb-5 flex flex-wrap gap-5"><label className="flex min-w-56 flex-1 flex-col gap-2 text-sm font-semibold">考试目标<select className="min-h-11 rounded-lg border border-slate-300 bg-white px-3 focus:outline-2 focus:outline-blue-600" value={examEventId} onChange={event => { setExamEventId(event.target.value); const goal = examEvents.find(item => item.id === event.target.value); if (goal) setTargetDate(goal.exam_date); setAvailableMinutes({}); }}><option value="">手动设置目标日期</option>{examEvents.map(event => <option key={event.id} value={event.id}>{event.title} · {event.exam_date}</option>)}</select></label><label className="flex flex-col gap-2 text-sm font-semibold">复习模式<select className="min-h-11 rounded-lg border border-slate-300 bg-white px-3 focus:outline-2 focus:outline-blue-600" value={mode} onChange={event => setMode(event.target.value as typeof mode)}><option value="CRAM">冲刺：优先薄弱点，缩短单次活动</option><option value="STANDARD">标准：学习与间隔复习</option><option value="COMPREHENSIVE">全面：覆盖课程与综合巩固</option></select></label></div>
           <div className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-100 pb-5">
             <div>
               <h2 id="plan-generator-title" className="text-lg font-semibold text-slate-900">生成计划</h2>
@@ -215,9 +256,10 @@ export default function Plan() {
               <span>目标完成日期 / 考试日期 <b className="text-red-600">必填</b></span>
               <input
                 type="date"
+                disabled={Boolean(examEventId)}
                 min={tomorrow}
                 value={targetDate}
-                onChange={(event) => setTargetDate(event.target.value)}
+                onChange={(event) => { setTargetDate(event.target.value); setAvailableMinutes({}); }}
                 className="min-h-11 rounded-lg border border-slate-300 bg-white px-3 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
               />
             </label>
@@ -262,6 +304,8 @@ export default function Plan() {
             </div>
           </div>
 
+          <fieldset className="mt-5 border-t border-slate-100 pt-5"><legend className="text-sm font-semibold">特殊日期可用时间</legend><div className="mt-3 flex flex-wrap items-end gap-3"><label className="text-sm">日期<input type="date" min={tomorrow.slice(0, 10)} max={targetDate || undefined} value={overrideDate} onChange={event => setOverrideDate(event.target.value)} className="ml-2 min-h-11 rounded-lg border border-slate-300 px-3 focus:outline-2 focus:outline-blue-600"/></label><label className="text-sm">分钟<input type="number" min={0} max={720} value={overrideMinutes} onChange={event => setOverrideMinutes(Number(event.target.value))} className="ml-2 min-h-11 w-24 rounded-lg border border-slate-300 px-3 focus:outline-2 focus:outline-blue-600"/></label><button type="button" disabled={!overrideDate || !targetDate || overrideDate > targetDate || overrideMinutes < 0 || overrideMinutes > 720} className="min-h-11 rounded-lg border border-slate-300 px-4 text-sm font-semibold hover:bg-slate-50 disabled:opacity-50" onClick={() => setAvailableMinutes(current => ({ ...current, [overrideDate]: overrideMinutes }))}>设置日期容量</button></div><p className="mt-2 text-xs text-slate-600">设为 0 表示当天不安排新任务。锁定及已完成任务保留，超额时会提示。</p><ul className="mt-3 space-y-2">{Object.entries(availableMinutes).sort().map(([day, amount]) => <li key={day} className="flex items-center gap-4 text-sm">{day}：{amount} 分钟<button type="button" className="min-h-11 font-semibold text-blue-700 underline" onClick={() => setAvailableMinutes(current => Object.fromEntries(Object.entries(current).filter(([key]) => key !== day)))}>恢复默认容量</button></li>)}</ul></fieldset>
+          <label className="mt-4 flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" className="accent-blue-600" checked={autoReplan} onChange={event => setAutoReplan(event.target.checked)}/>学习状态变化或任务逾期时自动重排（需后台调度服务运行）</label>
           <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-5">
             <div className="text-sm text-slate-500">
               {previewing ? '正在评估当前数据与时间容量…' : preview ? (preview.dataSufficient ? '当前数据足够用于个性化排程。' : '数据较少，计划将更多参考课程知识点重要度。') : '选择日期后将立即评估覆盖范围和时间是否充足。'}
@@ -330,13 +374,17 @@ export default function Plan() {
                 </div>
 
                 <div className="divide-y divide-slate-200 border-y border-slate-200">
-                  {selectedTasks.map((task) => <TaskRow key={task.id} task={task} onToggle={toggleTask} />)}
+                  {selectedTasks.map((task) => <TaskRow key={task.id} task={task} onToggle={toggleTask} onLock={lockTask}/>)}
                   {!selectedTasks.length && <div className="py-12 text-center text-sm text-slate-500">这一天没有安排任务，可选择其他日期。</div>}
                 </div>
               </div>
 
               <aside className="border-t border-slate-200 bg-slate-50 px-6 py-6 text-sm xl:border-l xl:border-t-0">
                 <h2 className="font-semibold text-slate-900">计划依据</h2>
+                <p className="mt-3 text-sm text-slate-600">{({ CRAM: '冲刺', STANDARD: '标准', COMPREHENSIVE: '全面' } as Record<string, string>)[overview.activePlan.mode || 'STANDARD']}模式 · 版本 {overview.activePlan.version ?? 1}</p>
+                {overview.activePlan.replan_required && <p className="mt-3 text-sm text-amber-900">学习状态已变化，计划等待重排。可立即更新，已完成、手动调整和锁定任务会保留。</p>}
+                <button className="mt-4 min-h-11 rounded-lg border border-slate-300 px-4 font-semibold text-blue-700 hover:bg-white disabled:opacity-50" disabled={replanning || isGenerating} onClick={() => void replan()}>{replanning ? '正在重排…' : '按当前状态重排'}</button>
+                {events.length > 0 && <details className="mt-5"><summary className="cursor-pointer font-semibold">最近的调整记录</summary><ul className="mt-3 space-y-3 text-sm text-slate-600">{events.slice(0, 8).map(event => <li key={event.id}><time>{new Date(event.created_at).toLocaleString('zh-CN')}</time><div>{event.event_type === 'replanned' ? '计划已重新安排' : '学习信息发生变化'}：{event.reason.includes(':') ? ({ knowledge_mastery: '掌握度', review_tasks: '任务进度或手动调整', materials: '课程资料', exam_events: '考试目标', exam_topic_map: '考试范围', topic_coverage: '学习覆盖', knowledge_points: '课程结构', syllabus_topics: '大纲范围' } as Record<string, string>)[event.reason.split(':')[0]] || '依据最新状态更新' : event.reason}</div></li>)}</ul></details>}
                 <div className="mt-4 space-y-3 text-slate-600">
                   <p className="flex items-center gap-2"><BookOpen className="size-4 text-blue-700" />练习结果 {overview.activePlan.strategy?.signalStats?.practiceResults || 0} 条</p>
                   <p className="flex items-center gap-2"><MessageSquareText className="size-4 text-blue-700" />互动评价 {overview.activePlan.strategy?.signalStats?.dialogueInteractions || 0} 条</p>
@@ -369,7 +417,7 @@ export default function Plan() {
   );
 }
 
-function TaskRow({ task, onToggle }: { task: StudyTask; onToggle: (task: StudyTask) => Promise<void> }) {
+function TaskRow({ task, onToggle, onLock }: { task: StudyTask; onToggle: (task: StudyTask) => Promise<void>; onLock: (task: StudyTask) => Promise<void> }) {
   return (
     <article className={`grid gap-4 py-5 lg:grid-cols-[32px_minmax(0,1fr)_auto] ${task.completed ? 'opacity-60' : ''}`}>
       <button type="button" aria-label={task.completed ? `将 ${task.title} 标记为未完成` : `完成 ${task.title}`} onClick={() => void onToggle(task)} className="mt-0.5 grid size-7 place-items-center rounded-full text-slate-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
@@ -388,6 +436,7 @@ function TaskRow({ task, onToggle }: { task: StudyTask; onToggle: (task: StudyTa
         </dl>
       </div>
       <div className="flex items-start gap-1 lg:justify-end">
+        <button type="button" className="min-h-11 rounded-lg px-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-blue-600" onClick={() => void onLock(task)}>{task.locked ? '解除锁定' : '锁定安排'}</button>
         {task.metadata?.resourceLinks?.slice(0, 2).map((link) => <Link key={link.href} to={link.href} className="inline-flex min-h-10 items-center gap-1 rounded-lg px-2 text-xs font-semibold text-blue-700 hover:bg-blue-50 focus-visible:outline-2 focus-visible:outline-blue-600">{link.label}<ChevronRight className="size-3.5" /></Link>)}
       </div>
     </article>

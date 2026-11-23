@@ -35,9 +35,9 @@ echo "===> Stopping and removing all containers..."
 
 if [ -f ".env" ]; then
     docker compose -f docker-compose.yml -f ./dev/docker-compose.dev.yml down -v --remove-orphans
-elif [ -f ".env.example" ]; then
-    echo "No .env found, using .env.example for docker compose down..."
-    docker compose --env-file .env.example -f docker-compose.yml -f ./dev/docker-compose.dev.yml down -v --remove-orphans
+elif [ -f "config.env.template" ]; then
+    echo "No .env found, using config.env.template for docker compose down..."
+    docker compose --env-file config.env.template -f docker-compose.yml -f ./dev/docker-compose.dev.yml down -v --remove-orphans
 else
     echo "Skipping 'docker compose down' because there's no env-file."
 fi
@@ -64,11 +64,11 @@ else
     echo "No .env file found."
 fi
 
-if [ -f ".env.example" ]; then
-    echo "===> Copying .env.example to .env"
-    cp .env.example .env
+if [ -f "config.env.template" ]; then
+    echo "===> Copying config.env.template to .env"
+    cp config.env.template .env
 else
-    echo "No .env.example found, can't restore .env to default values."
+    echo "No config.env.template found, can't restore .env to default values."
 fi
 
 echo "Cleanup complete!"

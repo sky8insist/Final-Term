@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "scope": "local bounded retention; not sustained Beat/production/ASR/browser",
+  "backendRegression": {
+    "passed": 914,
+    "warnings": 3
+  },
+  "files": [
+    {
+      "path": ".env.example",
+      "sha256": "4d32fb7ed553564e8f619bfaa5cb35ee2636268b796ffd8d4358049ce87b6600"
+    },
+    {
+      "path": "backend/app/config/settings.py",
+      "sha256": "a1b4c94569102198f5b98e65f779ab7f62f843e9257d7023b3298510c1fd482d"
+    },
+    {
+      "path": "backend/app/services/retention_service.py",
+      "sha256": "5402fa5220dfcdc8e10c4b2a0620a62397848ff3b119f279f9393e49a86a65a0"
+    },
+    {
+      "path": "backend/app/services/privacy_service.py",
+      "sha256": "b85a85c734b1b6539d441b0ec35f698f1bfccea86ce2d4fbd5839d2e5dfd1f5c"
+    },
+    {
+      "path": "backend/app/worker/celery_app.py",
+      "sha256": "421c6816089a67e326f50ff343da8246edf48ea19e410ad80e78a3d915ffdb48"
+    },
+    {
+      "path": "backend/app/worker/tasks.py",
+      "sha256": "9cb268271aa1e8395898ec15c18cee110ef972d2a8a9088e49150a11b8b515c8"
+    },
+    {
+      "path": "backend/migrations/059_data_retention.sql",
+      "sha256": "a63a8872407417201d086801919d368b81ceb999fe78dd2cd45e74f97472ec5b"
+    },
+    {
+      "path": "backend/scripts/run_data_retention.py",
+      "sha256": "b5105600f578f096a9a9bd3c3c3fe1ee7a79f78455bdbd3a2cb1bc053a67a7b1"
+    },
+    {
+      "path": "backend/scripts/verify_data_retention.py",
+      "sha256": "5d994d43d65ca387b8a995792d2d4aeb64654cf65eb9ed52f35c753f9d1e2ea6"
+    },
+    {
+      "path": "backend/tests/test_data_retention.py",
+      "sha256": "837e4924ccc3077d6a0b3bcf62a210356ad6bcb543548bf55978bab0159fd136"
+    },
+    {
+      "path": "docs/DATA_RETENTION.md",
+      "sha256": "903767ff3f14ebfea76c6f5c01ff36bdd19c4730f73305644721dc50eec3c21c"
+    },
+    {
+      "path": "docs/acceptance/DATA_RETENTION_20261027.md",
+      "sha256": "92011f4fec300377126c78a6ade767a90d54facbce09473aa414840f7ca98981"
+    },
+    {
+      "path": "docs/acceptance/data_retention_20261027/report.json",
+      "sha256": "76080ce1ccd99ce3d1f41ebb9a34677f29c84df233e46fb807dece3ceb540cd0"
+    },
+    {
+      "path": "docs/acceptance/data_retention_20261027/initial-report.json",
+      "sha256": "eb268578ac77c533fab6f97eda88d8e12b5a9a9a594ff6a7bda3bf9e81367777"
+    }
+  ]
+}

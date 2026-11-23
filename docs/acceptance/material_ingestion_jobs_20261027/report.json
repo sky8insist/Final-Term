@@ -1,0 +1,65 @@
+{
+  "startedAt": "2026-10-27T10:57:30.755275+00:00",
+  "checks": [
+    {
+      "name": "real upload atomically registers source/task; broker failure leaves durable queued task with zero attempts",
+      "status": "passed"
+    },
+    {
+      "name": "SQL publication fault rolls back blocks/chunks/vectors/ready while keeping both paid-stage checkpoints",
+      "status": "passed"
+    },
+    {
+      "name": "retry resumes parsed+embedded snapshots without repeat calls; optional graph failure preserves vector/keyword readiness and one domain event",
+      "status": "passed"
+    },
+    {
+      "name": "duplicate completed delivery skips parsing, embedding and publication",
+      "status": "passed"
+    },
+    {
+      "name": "live lease rejects duplicate/wrong token; expiry issues new token without resetting attempts",
+      "status": "passed"
+    },
+    {
+      "name": "cancel atomically revokes claim; late publication/failure cannot change cancellation or create canonical blocks",
+      "status": "passed"
+    },
+    {
+      "name": "foreign owner and direct authenticated publication denied",
+      "status": "passed"
+    },
+    {
+      "name": "actual independent thread receives busy for privacy deletion and worker claim while owner IO lock is held",
+      "status": "passed"
+    },
+    {
+      "name": "retention cleaner shares owner IO lock and leaves actual Storage object untouched during protected IO",
+      "status": "passed"
+    },
+    {
+      "name": "private export knows checkpoints; normal privacy cleanup removes tasks/checkpoints after IO completes",
+      "status": "passed"
+    }
+  ],
+  "cleanup": true,
+  "scope": "synthetic private-service/real TXT/DB/Storage/Redis/solo worker",
+  "providers": "fake deterministic 3D embedding and injected optional graph failure; no real model/graph requests",
+  "limitations": [
+    "no browser/ordinary user JWT or real MinerU/ASR/model quality",
+    "no sustained Beat/distributed fleet/P95",
+    "cooperating owner IO serialization; direct admin/legacy workers bypass it",
+    "storage-before-registration orphan window and external graph atomicity remain"
+  ],
+  "fixtureOwners": [
+    "4344d205-9853-4c61-b902-97983eeac7e3",
+    "ab68a01f-7439-4b64-9e12-dc34be42a51d"
+  ],
+  "providerCallCounts": {
+    "parse": 1,
+    "embed": 1,
+    "graph": 2
+  },
+  "success": true,
+  "finishedAt": "2026-10-27T10:57:39.547699+00:00"
+}

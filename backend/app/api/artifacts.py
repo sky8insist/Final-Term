@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, Query
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from uuid import UUID
+from typing import Literal
 
 from app.api.deps import get_current_user
 from app.models.artifact import (
@@ -17,10 +18,33 @@ from app.mindmap import service as mindmap_service
 router = APIRouter()
 
 
+class MindMapTopicBinding(BaseModel):
+    model_config = {'extra': 'forbid'}
+    topic_id: UUID | None = Field(default=None, alias='topicId')
+    artifact_version: int = Field(ge=1, alias='artifactVersion')
+    binding_version: int = Field(ge=0, alias='bindingVersion')
+
+
+@router.get('/{artifact_id}/learning')
+def map_learning(artifact_id: UUID, user: CurrentUser = Depends(get_current_user)):
+    from app.services.mind_map_topic_service import learning
+    return learning(user_id=user.id, artifact_id=str(artifact_id))
+
+
+@router.put('/{artifact_id}/nodes/{node_id}/topic')
+def bind_map_topic(artifact_id: UUID, node_id: str, payload: MindMapTopicBinding, user: CurrentUser = Depends(get_current_user)):
+    from app.services.mind_map_topic_service import bind
+    return bind(user_id=user.id, artifact_id=str(artifact_id), node_id=node_id,
+                topic_id=str(payload.topic_id) if payload.topic_id else None,
+                artifact_version=payload.artifact_version, binding_version=payload.binding_version)
+
+
 class FlashcardReview(BaseModel):
-    card_id: str = Field(validation_alias="cardId")
-    rating: str
-    response_seconds: float | None = Field(default=None, ge=0, validation_alias="responseSeconds")
+    card_id: str = Field(min_length=1, max_length=300, validation_alias="cardId")
+    rating: Literal["again", "hard", "good", "easy"]
+    response_seconds: float | None = Field(default=None, ge=0, le=86400, validation_alias="responseSeconds")
+    request_id: UUID | None = Field(default=None, validation_alias="requestId")
+    version: int | None = Field(default=None, ge=0)
 
 
 async def _generate_as(payload: ArtifactScopedGenerateRequest, artifact_type: str, user_id: str):
@@ -88,6 +112,7 @@ def update_artifact(artifact_id: str, payload: ArtifactUpdateRequest,
     return artifact_service.update_artifact(
         user_id=current_user.id, artifact_id=artifact_id,
         title=payload.title, content=payload.content,
+        version=payload.version,
     )
 
 
@@ -98,6 +123,7 @@ def review_flashcard(artifact_id: str, payload: FlashcardReview,
         user_id=current_user.id, artifact_id=artifact_id,
         card_id=payload.card_id, rating=payload.rating,
         response_seconds=payload.response_seconds,
+        request_id=str(payload.request_id) if payload.request_id else None, version=payload.version,
     )
 
 

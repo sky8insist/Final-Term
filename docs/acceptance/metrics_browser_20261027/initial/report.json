@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "status": "failed",
+  "evidenceKind": "initial real Edge run; report reconstructed from captured test output after Auth-admin cleanup error",
+  "passed": [
+    "protected redirect and normal password/JWT login",
+    "populated metrics",
+    "slow window race",
+    "history/event pagination and keyboard disclosure",
+    "detail URL reload",
+    "503 independent section and retry",
+    "1365/1024 layout",
+    "same-browser account switch",
+    "foreign audit 404"
+  ],
+  "failed": [
+    "close detail did not restore originating button focus"
+  ],
+  "not_recorded": [
+    "runtime-error count (interrupted report)"
+  ],
+  "cleanup": "exact generated fixture ID removed using verified local SQL; counts verified zero",
+  "recordedAt": "2026-10-27T04:54:29.671832+00:00"
+}

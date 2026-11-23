@@ -6,6 +6,7 @@ import { useAuth } from '../../auth/AuthProvider';
 import { MarkdownViewer } from '../../components/MarkdownViewer';
 import { useAppStore } from '../../stores/useAppStore';
 import type { ChatMessage, KnowledgePolicy, TutorRole } from '../../types';
+import type { TutorContext } from '../../types/conversion';
 
 const modes = [
   { id: 'detail', name: '详细讲解', icon: BookOpen, role: 'beginner' },
@@ -33,6 +34,9 @@ export default function AIStudyRoom() {
   const subject = useAppStore((state) => state.currentSubject)!;
   const [searchParams] = useSearchParams();
   const planTopic = searchParams.get('topic') || '';
+  const conversionId = searchParams.get('conversionId') || '';
+  const [conversionContext, setConversionContext] = useState<TutorContext | null>(null);
+  const [conversionError, setConversionError] = useState('');
   const { user } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [mode, setMode] = useState<(typeof modes)[number]['id']>('detail');
@@ -43,8 +47,8 @@ export default function AIStudyRoom() {
     subject.externalKnowledgeEnabled ? 'course_first' : 'course_only',
   );
   const sessionId = useMemo(
-    () => getOrCreateSessionId(user?.id ?? 'unknown-user', subject.id),
-    [subject.id, user?.id],
+    () => getOrCreateSessionId(user?.id ?? 'unknown-user', `${subject.id}:${conversionId}`),
+    [subject.id, user?.id, conversionId],
   );
 
   useEffect(() => {
@@ -52,6 +56,14 @@ export default function AIStudyRoom() {
     setInteractionId(null);
     setKnowledgePolicy(subject.externalKnowledgeEnabled ? 'course_first' : 'course_only');
   }, [subject.id, subject.externalKnowledgeEnabled]);
+
+  useEffect(() => {
+    let stopped = false; setConversionContext(null); setConversionError(''); setInteractionId(null);
+    if (conversionId) api.conversionTutorContext(conversionId, subject.id).then(value => {
+      if (!stopped) setConversionContext(value);
+    }).catch(reason => { if (!stopped) setConversionError(reason instanceof Error ? reason.message : '无法读取学习上下文。'); });
+    return () => { stopped = true; };
+  }, [conversionId, subject.id]);
 
   async function changeKnowledgePolicy(next: KnowledgePolicy) {
     setKnowledgePolicy(next);
@@ -68,7 +80,7 @@ export default function AIStudyRoom() {
     const form = event.currentTarget;
     const input = form.elements.namedItem('message') as HTMLTextAreaElement;
     const content = input.value.trim();
-    if (!content) return;
+    if (!content || (conversionId && !conversionContext)) return;
 
     setError('');
     setMessages((rows) => [
@@ -84,7 +96,8 @@ export default function AIStudyRoom() {
         content,
         session_id: sessionId,
         role: selectedMode.role as TutorRole,
-        interaction_id: interactionId,
+        interaction_id: conversionId ? null : interactionId,
+        conversion_id: conversionId || undefined,
         knowledge_policy: knowledgePolicy,
       });
       setInteractionId(reply.interaction?.expectsReply && reply.interaction.id ? reply.interaction.id : null);
@@ -122,7 +135,8 @@ export default function AIStudyRoom() {
         <label className="mt-6 block text-xs font-semibold text-slate-600" htmlFor="knowledge-policy">知识来源</label>
         <select
           id="knowledge-policy"
-          value={knowledgePolicy}
+          disabled={Boolean(conversionId)}
+          value={conversionId ? 'course_only' : knowledgePolicy}
           onChange={(event) => void changeKnowledgePolicy(event.target.value as KnowledgePolicy)}
           className="mt-2 w-full rounded-lg border border-slate-200 bg-white p-2 text-sm"
         >
@@ -133,6 +147,9 @@ export default function AIStudyRoom() {
       </aside>
 
       <section className="flex min-w-0 flex-1 flex-col">
+        {conversionId && <div className="border-b bg-blue-50 px-6 py-4 text-sm text-blue-950">
+          {conversionContext ? <><p className="font-semibold">已载入学习来源：{conversionContext.title}</p><p className="mt-1">来源内容与课程证据已传入 Tutor，可直接提问。讲解仅使用课程资料。</p></> : conversionError ? <p role="alert">{conversionError}</p> : <p role="status">正在读取学习上下文…</p>}
+        </div>}
         <header className="border-b px-6 py-4 font-bold">{subject.name} · AI 学习室</header>
         <div className="flex-1 space-y-6 overflow-y-auto p-5 md:p-8" aria-live="polite">
           {messages.map((message) => (
@@ -185,13 +202,14 @@ export default function AIStudyRoom() {
               name="message"
               rows={3}
               maxLength={4000}
-              disabled={sending}
-              defaultValue={planTopic ? `请通过苏格拉底追问帮助我检验对“${planTopic}”的理解。` : ''}
+              disabled={sending || Boolean(conversionId && !conversionContext)}
+              key={conversionId}
+              defaultValue={conversionId ? '请结合我的作答和课程证据，解释这部分内容，并给出下一步练习建议。' : planTopic ? `请通过苏格拉底追问帮助我检验对“${planTopic}”的理解。` : ''}
               placeholder={`向 AI 提问关于 ${subject.name} 的问题…`}
               className="w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 p-4 pr-14 outline-none transition-colors focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
             />
             <button
-              disabled={sending}
+              disabled={sending || Boolean(conversionId && !conversionContext)}
               aria-label="发送问题"
               className="absolute bottom-3 right-3 rounded-xl bg-blue-600 p-2 text-white transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             >

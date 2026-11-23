@@ -7,7 +7,7 @@ from typing import Any
 from app.db.supabase_client import get_supabase_client
 
 
-ALGORITHM_VERSION = "study-signal-v1"
+ALGORITHM_VERSION = "study-signal-v2-confidence"
 
 
 def _clamp(value: float, low: float = 0.0, high: float = 1.0) -> float:
@@ -57,14 +57,16 @@ def calculate_need_score(signal: dict, *, now: datetime | None = None) -> tuple[
         "dialogueConfusion": round(confusion, 4),
         "importance": round(_clamp(importance * 0.8 + prerequisite * 0.2), 4),
         "dataConfidence": round(data_confidence, 4),
+        "confidenceMismatch": round(_clamp(signal.get("confidenceMismatch", 0)), 4),
     }
     score = (
-        components["masteryGap"] * 0.35
+        components["masteryGap"] * 0.30
         + components["practiceLoss"] * 0.20
         + components["forgetting"] * 0.15
         + components["dialogueConfusion"] * 0.15
         + components["importance"] * 0.10
         + components["dataConfidence"] * 0.05
+        + components["confidenceMismatch"] * 0.05
     )
     return round(_clamp(score), 4), components
 
@@ -81,6 +83,8 @@ def _reason_lines(signal: dict, components: dict[str, float]) -> list[str]:
         reasons.append("距离上次有效练习时间较长，需要回忆巩固")
     if not reasons:
         reasons.append("依据课程知识点重要度安排基础覆盖")
+    if components["confidenceMismatch"] >= 0.5:
+        reasons.insert(0, "答题信心与结果不一致，建议先校准理解")
     return reasons[:3]
 
 
@@ -97,7 +101,7 @@ def collect_study_signals(*, user_id: str, subject_id: str, observation_days: in
     if question_ids:
         grading = _safe_rows(
             client.table("grading_results")
-            .select("question_id,attempt_id,earned_points,max_points,is_correct,feedback,error_type,created_at")
+            .select("question_id,attempt_id,earned_points,max_points,is_correct,feedback,error_type,created_at,learner_confidence,confidence_mismatch")
             .eq("user_id", user_id).in_("question_id", question_ids)
             .gte("created_at", cutoff.isoformat()).order("created_at")
         )
@@ -130,7 +134,7 @@ def collect_study_signals(*, user_id: str, subject_id: str, observation_days: in
         "attemptCount": 0, "correctCount": 0, "earnedPoints": 0.0, "maxPoints": 0.0,
         "consecutiveCorrect": 0, "dialogueEventCount": 0, "hintRequestCount": 0,
         "incompleteInteractionCount": 0, "masteryEvidenceCount": 0,
-        "subjectiveFeedback": [], "difficulties": [], "sources": set(),
+        "subjectiveFeedback": [], "difficulties": [], "sources": set(), "confidenceMismatches": [],
     })
     for point in knowledge_points:
         key = str(point.get("knowledge_key") or "").strip()
@@ -151,6 +155,8 @@ def collect_study_signals(*, user_id: str, subject_id: str, observation_days: in
         item["attemptCount"] += 1
         is_correct = bool(row.get("is_correct"))
         item["correctCount"] += int(is_correct)
+        if row.get("confidence_mismatch") is not None:
+            item["confidenceMismatches"].append(float(row["confidence_mismatch"]))
         item["consecutiveCorrect"] = item["consecutiveCorrect"] + 1 if is_correct else 0
         item["earnedPoints"] += float(row.get("earned_points") or 0)
         item["maxPoints"] += float(row.get("max_points") or 0)
@@ -205,7 +211,7 @@ def collect_study_signals(*, user_id: str, subject_id: str, observation_days: in
             "attemptCount": 0, "correctCount": 0, "earnedPoints": 0.0, "maxPoints": 0.0,
             "consecutiveCorrect": 0, "dialogueEventCount": 0, "hintRequestCount": 0,
             "incompleteInteractionCount": 0, "masteryEvidenceCount": 0,
-            "subjectiveFeedback": [], "difficulties": [], "sources": set(),
+            "subjectiveFeedback": [], "difficulties": [], "sources": set(), "confidenceMismatches": [],
         }
     signals = []
     for key, item in raw.items():
@@ -219,6 +225,8 @@ def collect_study_signals(*, user_id: str, subject_id: str, observation_days: in
         item.setdefault("confidence", 0)
         item.setdefault("importance", 0.5)
         item.setdefault("prerequisiteWeight", 0)
+        mismatches = item.pop("confidenceMismatches")
+        item["confidenceMismatch"] = sum(mismatches) / len(mismatches) if mismatches else 0
         score, components = calculate_need_score(item)
         item["needScore"] = score
         item["needComponents"] = components

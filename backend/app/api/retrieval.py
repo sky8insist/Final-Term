@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
+from typing import Literal
 
 from app.api.deps import get_current_user
 from app.models.user import CurrentUser
@@ -19,6 +20,7 @@ class RetrievalSearchRequest(BaseModel):
     start_time: float | None = Field(default=None, ge=0, validation_alias="startTime")
     end_time: float | None = Field(default=None, ge=0, validation_alias="endTime")
     min_confidence: float | None = Field(default=None, ge=0, le=1, validation_alias="minConfidence")
+    strategy: Literal["baseline", "adaptive"] = "adaptive"
 
 
 @router.post("/search")
@@ -38,4 +40,5 @@ def search_retrieval_context(
         start_time=payload.start_time,
         end_time=payload.end_time,
         min_confidence=payload.min_confidence,
+        strategy=payload.strategy,
     )

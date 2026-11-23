@@ -2,10 +2,16 @@ from fastapi import APIRouter, Depends
 
 from app.api.deps import get_current_user
 from app.models.exam import ConfirmResponseRequest, SaveResponseRequest, StartAttemptRequest
+from app.models.exam import ResumeQuizRequest
 from app.models.user import CurrentUser
 from app.services import exam_service
 
 router = APIRouter()
+
+
+@router.post("/{attempt_id}/resume-quiz")
+def resume_quiz(attempt_id: str, payload: ResumeQuizRequest, current_user: CurrentUser = Depends(get_current_user)):
+    return exam_service.resume_quiz(user_id=current_user.id, attempt_id=attempt_id, note=payload.remediation_note)
 
 
 @router.get("/history")
@@ -30,6 +36,8 @@ def save_response(attempt_id: str, payload: SaveResponseRequest,
     return exam_service.save_response(
         user_id=current_user.id, attempt_id=attempt_id,
         question_id=payload.question_id, response_value=payload.response,
+        learner_confidence=payload.learner_confidence,
+        response_seconds=payload.response_seconds, hint_count=payload.hint_count,
     )
 
 
@@ -39,6 +47,8 @@ async def confirm_response(attempt_id: str, question_id: str, payload: ConfirmRe
     return await exam_service.confirm_response(
         user_id=current_user.id, attempt_id=attempt_id,
         question_id=question_id, response_value=payload.response,
+        learner_confidence=payload.learner_confidence,
+        response_seconds=payload.response_seconds, hint_count=payload.hint_count,
     )
 
 

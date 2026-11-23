@@ -1,0 +1,5 @@
+{
+  "minimumCaseCount": 2,
+  "candidateMinimums": {"retrieval.isolation": 1.0},
+  "minimumImprovementCI95LowerBounds": {"retrieval.ndcg": 0.0}
+}

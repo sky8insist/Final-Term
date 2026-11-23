@@ -5,11 +5,20 @@ import { useAppStore } from './stores/useAppStore';
 import { ProtectedRoute } from './auth/ProtectedRoute';
 
 const Dashboard = lazy(() => import('./pages/Dashboard'));
+const DailyReview = lazy(() => import('./pages/DailyReview'));
+const LearningMetrics = lazy(() => import('./pages/LearningMetrics'));
+const Notes = lazy(() => import('./pages/Notes'));
+const Calendar = lazy(() => import('./pages/Calendar'));
+const Lectures = lazy(() => import('./pages/Lectures'));
+const Conversions = lazy(() => import('./pages/Conversions'));
 const Materials = lazy(() => import('./pages/Materials'));
 const AIStudyRoom = lazy(() => import('./pages/AIStudyRoom'));
 const MindMap = lazy(() => import('./pages/MindMap'));
 const Exams = lazy(() => import('./pages/Exams'));
 const Plan = lazy(() => import('./pages/Plan'));
+const Course = lazy(() => import('./pages/Course'));
+const GuidedStudy = lazy(() => import('./pages/GuidedStudy'));
+const Flashcards = lazy(() => import('./pages/Flashcards'));
 const AuthPage = lazy(() => import('./pages/Auth'));
 
 class WorkspaceErrorBoundary extends Component<{ children: React.ReactNode }, { error: string }> {
@@ -46,6 +55,15 @@ export default function App() {
         <Route path="mind-map" element={<Workspace><MindMap/></Workspace>}/>
         <Route path="exams" element={<Workspace><Exams/></Workspace>}/>
         <Route path="plan" element={<Workspace><Plan/></Workspace>}/>
+        <Route path="course" element={<Workspace><Course/></Workspace>}/>
+        <Route path="guided-study" element={<Workspace><GuidedStudy/></Workspace>}/>
+        <Route path="daily-review" element={<Workspace><DailyReview/></Workspace>}/>
+        <Route path="flashcards" element={<Workspace><Flashcards/></Workspace>}/>
+        <Route path="notes" element={<Workspace><Notes/></Workspace>}/>
+        <Route path="calendar" element={<Calendar/>}/>
+        <Route path="learning-metrics" element={<LearningMetrics/>}/>
+        <Route path="lectures" element={<Workspace><Lectures/></Workspace>}/>
+        <Route path="convert" element={<Workspace><Conversions/></Workspace>}/>
       </Route>
     </Route>
     <Route path="*" element={<Navigate to="/" replace/>}/>

@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [string]$EnvPath = (Join-Path (Split-Path -Parent $PSScriptRoot) '.env'),
-    [string]$TemplatePath = (Join-Path (Split-Path -Parent $PSScriptRoot) '.env.example')
+    [string]$TemplatePath = (Join-Path (Split-Path -Parent $PSScriptRoot) 'config.env.template')
 )
 
 $ErrorActionPreference = 'Stop'

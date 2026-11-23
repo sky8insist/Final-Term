@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from contextlib import contextmanager
 import json
+import math
 from pathlib import Path
 import re
 import shutil
@@ -61,10 +62,21 @@ def _probe_duration(path: str) -> float:
         "-of", "json", path,
     ])
     try:
-        duration = float(json.loads(result.stdout.decode("utf-8"))["format"]["duration"])
+        value=json.loads(result.stdout.decode('utf-8')).get('format',{}).get('duration')
+        if value is None or value=='N/A':
+            packets=_run([_require_binary('ffprobe'),'-v','error','-select_streams','a:0','-show_entries','packet=pts_time,duration_time','-of','csv=p=0',path])
+            ends=[]
+            for line in packets.stdout.decode('utf-8').splitlines():
+                parts=line.split(',')
+                try:
+                    end=float(parts[0])+float(parts[1])
+                    if math.isfinite(end):ends.append(end)
+                except (ValueError,IndexError):continue
+            duration=max(ends,default=0)
+        else:duration=float(value)
     except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
         raise AudioProcessingError("Audio duration could not be determined") from exc
-    if duration <= 0:
+    if not math.isfinite(duration) or duration <= 0:
         raise AudioProcessingError("Audio is empty")
     return duration
 
@@ -128,7 +140,7 @@ def split_audio_bytes(
             if duration > max(float(settings.audio_segment_seconds), 30.0) else []
         )
         ranges = _segment_ranges(duration, silence_points)
-        if len(ranges) == 1:
+        if len(ranges) == 1 and content_type!='audio/webm':
             return [AudioSegment(
                 index=0, start_time=0.0, end_time=duration, data=data,
                 filename=filename, content_type=content_type, derived=False,

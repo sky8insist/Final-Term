@@ -1,0 +1,138 @@
+{
+  "startedAt": "2026-10-27T09:43:45.088750+00:00",
+  "scope": "local synthetic SQL/Storage/Redis/isolated solo worker",
+  "checks": [
+    {
+      "name": "dry-run shows bounded candidates in all six families without deleting or writing receipts",
+      "status": "passed"
+    },
+    {
+      "name": "injected delete failure rolls back purge and fingerprint receipts together",
+      "status": "passed"
+    },
+    {
+      "name": "bounded repeated purge drains old data; recent/other-owner/unconsumed/dead-job events survive",
+      "status": "passed"
+    },
+    {
+      "name": "all six purged-source replays are suppressed, including fresh-ID events and outbox resurrection",
+      "status": "passed"
+    },
+    {
+      "name": "restoring a previously completed low-score step cannot create a fresh remediation cohort after event purge",
+      "status": "passed"
+    },
+    {
+      "name": "receipts included in private export; anonymous purge and direct authenticated receipt reads denied",
+      "status": "passed"
+    },
+    {
+      "name": "two actual database connections claim disjoint assets with SKIP LOCKED; wrong token rejected",
+      "status": "passed"
+    },
+    {
+      "name": "renewed manifest protected; failed cleanup retains manifest with backoff; active lease/future/busy assets excluded",
+      "status": "passed"
+    },
+    {
+      "name": "real isolated Redis/solo worker recovers deleted-file lost-ack, retries failure and safely repeats; busy/future files remain",
+      "status": "passed"
+    },
+    {
+      "name": "normal privacy transaction also erases all retained dedupe receipts",
+      "status": "passed"
+    }
+  ],
+  "cleanup": true,
+  "limitations": [
+    "no sustained Beat/distributed fleet/production acceptance",
+    "no cross-service upload/deletion publication fence",
+    "no model/ASR/browser/LightRAG call",
+    "receipt and completed-job identities remain until subject/account deletion"
+  ],
+  "workerResults": [
+    {
+      "status": "completed",
+      "relational": {
+        "counts": {
+          "product_events": 0,
+          "recommendation_audits": 0,
+          "learning_domain_events": 0,
+          "learning_metric_cohorts": 0,
+          "mastery_prediction_samples": 0,
+          "mastery_prediction_coverage": 0
+        },
+        "dryRun": false,
+        "policy": {
+          "auditDays": 180,
+          "eventDays": 180,
+          "metricDays": 365
+        },
+        "moreMayRemain": false,
+        "batchLimitPerFamily": 2
+      },
+      "assets": {
+        "claimed": 1,
+        "removed": 1,
+        "failed": 0,
+        "skipped": 0
+      }
+    },
+    {
+      "status": "completed",
+      "relational": {
+        "counts": {
+          "product_events": 0,
+          "recommendation_audits": 0,
+          "learning_domain_events": 0,
+          "learning_metric_cohorts": 0,
+          "mastery_prediction_samples": 0,
+          "mastery_prediction_coverage": 0
+        },
+        "dryRun": false,
+        "policy": {
+          "auditDays": 180,
+          "eventDays": 180,
+          "metricDays": 365
+        },
+        "moreMayRemain": false,
+        "batchLimitPerFamily": 2
+      },
+      "assets": {
+        "claimed": 1,
+        "removed": 1,
+        "failed": 0,
+        "skipped": 0
+      }
+    },
+    {
+      "status": "completed",
+      "relational": {
+        "counts": {
+          "product_events": 0,
+          "recommendation_audits": 0,
+          "learning_domain_events": 0,
+          "learning_metric_cohorts": 0,
+          "mastery_prediction_samples": 0,
+          "mastery_prediction_coverage": 0
+        },
+        "dryRun": false,
+        "policy": {
+          "auditDays": 180,
+          "eventDays": 180,
+          "metricDays": 365
+        },
+        "moreMayRemain": false,
+        "batchLimitPerFamily": 2
+      },
+      "assets": {
+        "claimed": 0,
+        "removed": 0,
+        "failed": 0,
+        "skipped": 0
+      }
+    }
+  ],
+  "success": true,
+  "finishedAt": "2026-10-27T09:43:51.724331+00:00"
+}

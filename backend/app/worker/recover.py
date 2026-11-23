@@ -15,6 +15,11 @@ def recover_unfinished_tasks() -> int:
         .data
     )
     for row in rows:
+        if row.get('task_type', 'material_ingestion') == 'material_ingestion':
+            # Lease-aware claim/sweep owns recovery; do not steal live work or
+            # reset attempts after every process restart.
+            process_material.delay(row['id'])
+            continue
         if row["status"] == "running":
             client.table("processing_tasks").update({
                 "status": "queued",

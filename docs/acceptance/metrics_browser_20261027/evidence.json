@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "scope": "learning-metrics + auth only",
+  "verifiedAt": "2026-10-27T05:00:13.928002+00:00",
+  "passedChecks": 22,
+  "browserContexts": "new isolated headless Edge/Chrome profiles; synthetic accounts; normal Supabase password/JWT auth",
+  "digestAlgorithm": "SHA256 of file bytes",
+  "sourceFiles": {
+    "frontend/src/pages/LearningMetrics/index.tsx": "f0fdf843efbac183f5bf746edd667205094d8d2d1062b210cb5d33437eebcfd9",
+    "backend/scripts/verify_metrics_browser.py": "d850db8e3a2a078a64c3082942e85b6e6d99e65473664f642c4ef5c53150ca1a",
+    "backend/app/api/deps.py": "52b93baf9448c7617340d55dac4798b9dda5e273736969b7f233909e4e1eb68c",
+    "backend/migrations/057_prediction_coverage.sql": "6b5b44e859f67409947fe14308e5e371915dee99a9422e4290146fba07dc2ee3"
+  },
+  "artifacts": {
+    "docs/acceptance/metrics_browser_20261027/edge/audit-keyboard.png": "6ffd4b69660d15499481f8315a612982ab65e102768191b3f5bf5c2c4739448d",
+    "docs/acceptance/metrics_browser_20261027/edge/desktop-1024.png": "04f7dd9d0f672fd5e14d036df3afa5ee76c9cb51b87437cea712690b16b85393",
+    "docs/acceptance/metrics_browser_20261027/edge/desktop-1365.png": "7a36f9557f1ea069d1fc0baafa03adf31a2597144354b9684bc8e1b3df9b9c73",
+    "docs/acceptance/metrics_browser_20261027/edge/empty-account.png": "f622913e7c7914da62c300d331ddd36ed330583ac720c11f1bdc2a5d3f8e0394",
+    "docs/acceptance/metrics_browser_20261027/edge/report.json": "31b297483c357b91a44b67c287975175989799b1dd43d85b1853dc850211f2eb",
+    "docs/acceptance/metrics_browser_20261027/chrome/audit-keyboard.png": "e467fb18dd43a597a1ab0b08112bc5c39ee04c528f92e4601b998713671f52d4",
+    "docs/acceptance/metrics_browser_20261027/chrome/desktop-1024.png": "710b1c3adf3318a1fdfad1c5a7d118d0ca1aaf915c197a238290f74dee4e1a58",
+    "docs/acceptance/metrics_browser_20261027/chrome/desktop-1365.png": "4c9e3859f79403110e195c7529ab4eae2b6cadff5684f7e009489c442ed0aed7",
+    "docs/acceptance/metrics_browser_20261027/chrome/empty-account.png": "ddb2c063345b29d6e4582ec13b3cfbb5ccc091b45036af2e7fcdb7a8a199fce7",
+    "docs/acceptance/metrics_browser_20261027/chrome/report.json": "4395f21620cdbb4d3947c67ad4ea8391a458ffd57095228ff7963cd8f3131d76"
+  }
+}

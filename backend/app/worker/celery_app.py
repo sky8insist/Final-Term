@@ -13,9 +13,15 @@ celery_app.conf.update(
     task_always_eager=settings.celery_task_always_eager,
     timezone="Asia/Shanghai",
     beat_schedule={
+        'cleanup-abandoned-uploads': {'task':'app.worker.tasks.cleanup_abandoned_uploads','schedule':600.0},
+        'dispatch-material-ingestions': {'task':'app.worker.tasks.sweep_material_ingestions','schedule':60.0},
+        'dispatch-learning-jobs': {'task':'app.worker.tasks.sweep_learning_jobs','schedule':60.0},
+        'enqueue-upload-notes': {'task': 'app.worker.tasks.sweep_upload_notes', 'schedule': 60.0},
+        'dispatch-learning-conversions': {'task': 'app.worker.tasks.sweep_conversions', 'schedule': 60.0},
+        "refresh-changed-study-plans": {"task": "app.worker.tasks.refresh_study_plans", "schedule": 300.0},
         "cleanup-expired-material-assets": {
             "task": "app.worker.tasks.cleanup_expired_assets",
-            "schedule": 86400.0,
+            "schedule": 3600.0,
         },
     },
 )

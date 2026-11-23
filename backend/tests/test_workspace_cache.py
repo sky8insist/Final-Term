@@ -1,4 +1,5 @@
 import json
+import pytest
 
 from fastapi.testclient import TestClient
 
@@ -6,6 +7,13 @@ from app.api.deps import get_current_user
 from app.main import app
 from app.models.user import CurrentUser
 from app.services import workspace_cache_service
+
+VERSION='a'*32
+
+
+@pytest.fixture(autouse=True)
+def version_stub(monkeypatch):
+    monkeypatch.setattr(workspace_cache_service,'current_version',lambda **_:{'version':VERSION})
 
 
 class FakeRedis:
@@ -32,7 +40,7 @@ def test_workspace_cache_is_user_and_subject_scoped(monkeypatch):
     monkeypatch.setattr(workspace_cache_service, "get_redis_client", lambda: fake)
 
     workspace_cache_service.save_snapshot(
-        user_id="user-1", resource="chat", subject_id="subject-a", data=[{"id": "one"}],
+        user_id="user-1", resource="chat", subject_id="subject-a", data=[{"id": "one"}],expected_version=VERSION,
     )
 
     assert workspace_cache_service.load_snapshot(
@@ -52,7 +60,7 @@ def test_workspace_cache_rejects_oversized_payload(monkeypatch):
 
     try:
         workspace_cache_service.save_snapshot(
-            user_id="user-1", resource="workspace", data={"value": "x" * 1_000_001},
+            user_id="user-1", resource="workspace", data={"value": "x" * 1_000_001},expected_version=VERSION,
         )
     except ValueError as exc:
         assert "too large" in str(exc)
@@ -69,7 +77,7 @@ def test_workspace_cache_api_requires_auth_and_round_trips(monkeypatch):
 
     app.dependency_overrides[get_current_user] = _user
     try:
-        saved = client.put("/api/v1/workspace/cache/dashboard", json={"data": {"stats": {"studyMinutes": 30}}})
+        saved = client.put("/api/v1/workspace/cache/dashboard", json={"data": {"stats": {"studyMinutes": 30}},'expectedVersion':VERSION})
         loaded = client.get("/api/v1/workspace/cache/dashboard")
     finally:
         app.dependency_overrides.clear()
@@ -78,4 +86,6 @@ def test_workspace_cache_api_requires_auth_and_round_trips(monkeypatch):
     assert loaded.status_code == 200
     assert loaded.json()["stale"] is True
     assert loaded.json()["data"]["stats"]["studyMinutes"] == 30
-    assert json.loads(fake.values[next(iter(fake.values))][1])["schemaVersion"] == 1
+    assert json.loads(fake.values[next(iter(fake.values))][1])["schemaVersion"] == 2
+    assert loaded.json()['versionVerified'] is True
+    assert loaded.headers['Cache-Control']=='no-store'

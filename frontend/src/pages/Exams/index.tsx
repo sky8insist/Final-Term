@@ -5,6 +5,7 @@ import { api } from '../../api/client';
 import { useAppStore } from '../../stores/useAppStore';
 import type { Exam, ExamDetail, ExamGenerateInput, KnowledgePolicy, ProcessingTask } from '../../types';
 import { ExamQuestionList } from './components/ExamQuestionList';
+import { ConversionHistory } from '../../components/TurnInto';
 import { QuestionTypeSelector, type QuestionTypeCounts } from './components/QuestionTypeSelector';
 
 const stageLabels: Record<string, string> = {
@@ -28,6 +29,7 @@ export default function Exams() {
   const [selectedExam, setSelectedExam] = useState<ExamDetail | null>(null);
   const [counts, setCounts] = useState<QuestionTypeCounts>(initialCounts);
   const [difficulty, setDifficulty] = useState('medium');
+  const [assessmentMode, setAssessmentMode] = useState<'adaptive' | 'formal'>('adaptive');
   const [scope, setScope] = useState(searchParams.get('topic') ?? '');
   const [scopeTouched, setScopeTouched] = useState(false);
   const [knowledgePolicy, setKnowledgePolicy] = useState<KnowledgePolicy>('course_first');
@@ -55,6 +57,18 @@ export default function Exams() {
     const active = examTasks.find((item) => item.status === 'queued' || item.status === 'running');
     if (active) { setTask(active); setActiveTaskId(active.id); }
   }
+
+  useEffect(() => {
+    let stopped = false;
+    const id = searchParams.get('examId');
+    if (id) api.exams(subject.id).then(async rows => {
+      if (!rows.some(row => row.id === id)) throw new Error('测验不属于当前科目，请切换到生成时的科目。');
+      return api.exam(id);
+    }).then(value => {
+      if (!stopped) setSelectedExam(value);
+    }).catch(reason => { if (!stopped) setError(reason instanceof Error ? reason.message : '无法读取生成的测验。'); });
+    return () => { stopped = true; };
+  }, [subject.id, searchParams]);
 
   useEffect(() => {
     setScope(searchParams.get('topic') ?? '');
@@ -104,7 +118,7 @@ export default function Exams() {
     const points: Record<keyof QuestionTypeCounts, number> = { single_choice: 2, multiple_choice: 3, true_false: 1, fill_blank: 2, short_answer: 5 };
     const payload: ExamGenerateInput = {
       subjectId: subject.id, title: scope.trim() ? `${scope.trim()} · 专项练习` : '专项练习',
-      durationMinutes: Math.max(10, totalCount * 2), difficulty, assessmentType: 'practice',
+      durationMinutes: Math.max(10, totalCount * 2), difficulty, assessmentType: 'practice', assessmentMode,
       scope: scope.trim(), knowledgePolicy,
       questionTypes: (Object.entries(counts) as Array<[keyof QuestionTypeCounts, number]>)
         .filter(([, count]) => count > 0)
@@ -150,12 +164,13 @@ export default function Exams() {
             </div>
           </fieldset>
           <QuestionTypeSelector value={counts} disabled={busy} onChange={setCounts} />
+          <label className="mt-5 block text-sm font-semibold text-slate-800">评估模式<select className="ml-3 min-h-11 rounded-lg border border-slate-300 bg-white px-3 focus:outline-2 focus:outline-blue-600" disabled={busy} value={assessmentMode} onChange={event => setAssessmentMode(event.target.value as 'adaptive' | 'formal')}><option value="adaptive">自适应测验：逐题反馈与暂停复习</option><option value="formal">正式考试：整卷提交后评分</option></select></label>
           <div className="mt-5 flex items-center justify-between text-sm"><span className="text-slate-500">本次共生成</span><strong className={totalCount > 20 ? 'text-rose-600' : 'text-slate-900'}>{totalCount} 题</strong></div>
           <button disabled={busy || !topicValid || totalCount < 1 || totalCount > 20} onClick={() => void generate()} className="mt-5 flex w-full items-center justify-center rounded-xl bg-blue-600 py-4 text-lg font-bold text-white transition hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-55"><Play size={20} className="mr-2" />{busy ? '后台生成中…' : '生成练习'}</button>
           {task && busy && <div className="mt-5 rounded-xl bg-blue-50 p-4 text-blue-900" role="status" aria-live="polite"><div className="flex items-center gap-3 text-sm font-semibold"><LoaderCircle className="animate-spin" size={18} />{stageText}</div><div className="mt-3 h-2 overflow-hidden rounded-full bg-blue-100" aria-label={`生成进度 ${task.progress}%`}><div className="h-full rounded-full bg-blue-600 transition-all" style={{ width: `${task.progress}%` }} /></div><div className="mt-2 flex flex-wrap justify-between gap-2 text-xs text-blue-700"><span>已完成 {Number(stageDetails.completedQuestions ?? 0)}/{Number(stageDetails.totalQuestions ?? totalCount)} 题</span><span>{task.progress}%</span></div><p className="mt-2 text-xs text-blue-700">每批结果都会保存；页面关闭或 Worker 重启后可继续处理。</p></div>}
         </section>
         {selectedExam?.generation && <details className="rounded-xl bg-emerald-50 px-5 py-4 text-sm text-emerald-950"><summary className="cursor-pointer font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600">知识来源说明</summary><div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-emerald-800"><span>课程证据 {selectedExam.generation.retrieval.courseEvidenceCount ?? 0} 条</span><span>公开证据 {selectedExam.generation.retrieval.externalEvidenceCount ?? 0} 条</span><span>{selectedExam.generation.retrieval.externalUsed ? '已补充公开知识' : '本次使用课程资料命题'}</span></div>{selectedExam.generation.retrieval.warnings?.includes('external_knowledge_unavailable') && <p className="mt-2 text-emerald-800">公开知识本次未参与，课程资料仍是完整的答案依据，不影响作答。</p>}</details>}
-        {selectedExam && <ExamQuestionList exam={selectedExam} onCompleted={() => void refreshHistory()} />}
+        {selectedExam && <><ExamQuestionList exam={selectedExam} onCompleted={() => void refreshHistory()} /><ConversionHistory key={selectedExam.id} subjectId={subject.id} objectId={selectedExam.id}/></>}
       </div>
       <aside className="rounded-2xl border bg-white p-6 shadow-sm">
         <h2 className="mb-4 font-bold">最近记录</h2>

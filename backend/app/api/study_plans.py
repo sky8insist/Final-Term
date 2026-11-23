@@ -16,6 +16,8 @@ def preview_plan(payload: StudyPlanRequest,
         user_id=current_user.id, subject_id=payload.subject_id,
         exam_date=payload.exam_date, daily_minutes=payload.daily_minutes,
         reserve_final_day=payload.reserve_final_day, weekend_extra=payload.weekend_extra,
+        mode=payload.mode, exam_event_id=str(payload.exam_event_id) if payload.exam_event_id else None,
+        available_minutes=payload.available_minutes, preserve_existing=payload.preserve_existing,
     )
 
 
@@ -60,10 +62,24 @@ def activate_sprint(plan_id: str, current_user: CurrentUser = Depends(get_curren
     )
 
 
+@router.post("/{plan_id}/replan")
+def replan(plan_id: UUID, current_user: CurrentUser = Depends(get_current_user)):
+    from app.services.study_plan_v3_service import replan
+    return replan(user_id=current_user.id, plan_id=str(plan_id))
+
+
+@router.get("/{plan_id}/events")
+def events(plan_id: UUID, current_user: CurrentUser = Depends(get_current_user)):
+    from app.db.supabase_client import get_supabase_client
+    return (get_supabase_client().table("study_plan_events").select("*").eq("user_id", current_user.id)
+            .eq("plan_id", str(plan_id)).order("created_at", desc=True).limit(50).execute().data)
+
+
 @router.patch("/tasks/{task_id}")
 def update_task(task_id: str, payload: ReviewTaskUpdate,
                 current_user: CurrentUser = Depends(get_current_user)):
     return study_plan_service.update_task(
         user_id=current_user.id, task_id=task_id, task_status=payload.status,
         scheduled_date=payload.scheduled_date, estimated_minutes=payload.estimated_minutes,
+        locked=payload.locked,
     )

@@ -8,9 +8,11 @@ from fastapi import HTTPException, status
 
 from app.config.settings import settings
 from app.db.supabase_client import get_supabase_client
+from app.services.memory_policy_service import admit
+from app.services.subject_service import get_subject
 
-MEMORY_SELECT = "id,subject_id,target,content,confidence,importance,source_event_id,last_used_at,created_at,updated_at"
-WRITE_SELECT = "id,subject_id,action,target,memory_entry_id,old_text,content,confidence,importance,source_event_id,reason,status,created_at,resolved_at"
+MEMORY_SELECT = "id,subject_id,target,content,confidence,importance,source_event_id,last_used_at,created_at,updated_at,memory_kind,provenance"
+WRITE_SELECT = "id,subject_id,action,target,memory_entry_id,old_text,content,confidence,importance,source_event_id,reason,status,created_at,resolved_at,memory_kind,provenance"
 SUSPICIOUS_PATTERNS = [
     re.compile(pattern, re.IGNORECASE) for pattern in (
         r"ignore (all|any|the) previous instructions", r"system prompt", r"developer message",
@@ -102,13 +104,18 @@ def _apply_write(*, user_id: str, action: str, target: str, subject_id: str | No
                  old_text: str | None, content: str | None, confidence: float,
                  importance: int = 50, source_event_id: str | None = None) -> dict:
     client = get_supabase_client()
-    entries = list_memories(user_id=user_id, target=target)
+    if subject_id: get_subject(user_id=user_id, subject_id=subject_id)
+    if action in {'remove', 'replace'} and not (old_text or '').strip():
+        raise HTTPException(422, 'oldText is required')
+    all_entries = list_memories(user_id=user_id, target=target)
+    entries = [entry for entry in all_entries if entry.get('subject_id') == subject_id]
     if action == "remove":
         entry = _find_unique_entry(entries, (old_text or "").strip())
         client.table("memory_entries").delete().eq("id", entry["id"]).eq("user_id", user_id).execute()
         return {"action": action, "removedId": entry["id"], "target": target}
     cleaned = _scan(content or "")
-    duplicate = next((entry for entry in entries if _hash(entry["content"]) == _hash(cleaned)), None)
+    admit(cleaned)
+    duplicate = next((entry for entry in entries if entry.get('memory_kind', 'legacy') != 'legacy' and _hash(entry["content"]) == _hash(cleaned)), None)
     if duplicate:
         return {"action": action, "entry": duplicate, "duplicate": True}
     replaced = None
@@ -123,7 +130,8 @@ def _apply_write(*, user_id: str, action: str, target: str, subject_id: str | No
             action = "replace"
             if similar["content"] not in cleaned and cleaned not in similar["content"]:
                 cleaned = f"{similar['content']}；{cleaned}"
-    used = _used_chars(entries)
+    admit(cleaned)
+    used = _used_chars(all_entries)
     if action == "replace":
         replaced = replaced or _find_unique_entry(entries, (old_text or "").strip())
         used -= len(replaced["content"])
@@ -172,18 +180,19 @@ def request_write(*, user_id: str, action: str, target: str, subject_id: str | N
     profile = get_profile(user_id=user_id)
     if not profile.get("memoryEnabled", True) and action != "remove":
         return {"status": "disabled", "reason": "Long-term memory is disabled"}
-    must_approve = profile.get("writeApproval", False) if require_approval is None else require_approval
+    if action != 'remove':
+        admit(_scan(content or ''))
+    if subject_id: get_subject(user_id=user_id, subject_id=subject_id)
+    must_approve = bool(source_event_id) or (profile.get("writeApproval", False) if require_approval is None else require_approval)
     if confidence < 0.7 or target == "user_profile" and confidence < 0.9:
         must_approve = True
     if content and any(pattern.search(content) for pattern in SENSITIVE_PATTERNS):
         must_approve = True
     if action == "add" and content and not must_approve:
-        existing = list_memories(user_id=user_id, target=target)
+        existing = [entry for entry in list_memories(user_id=user_id, target=target) if entry.get('subject_id') == subject_id]
         similar = max(existing, key=lambda item: _similarity(item["content"], content), default=None)
         if similar and _similarity(similar["content"], content) >= 0.55 and _polarity(similar["content"]) != _polarity(content):
             must_approve = True
-    if content:
-        _scan(content)
     if not must_approve:
         return {"status": "applied", **_apply_write(
             user_id=user_id, action=action, target=target, subject_id=subject_id,
@@ -210,6 +219,8 @@ def resolve_write(*, user_id: str, request_id: str, approve: bool) -> dict:
     item = response.data[0]
     result = None
     if approve:
+        if item['action'] != 'remove' and not get_profile(user_id=user_id).get('memoryEnabled', True):
+            raise HTTPException(409, 'Long-term memory is disabled')
         result = _apply_write(
             user_id=user_id, action=item["action"], target=item["target"], subject_id=item.get("subject_id"),
             old_text=item.get("old_text"), content=item.get("content"), confidence=item.get("confidence", 1),
@@ -222,23 +233,21 @@ def resolve_write(*, user_id: str, request_id: str, approve: bool) -> dict:
 
 def create_snapshot(*, user_id: str, session_id: str, subject_id: str | None = None) -> dict:
     UUID(session_id)
-    client = get_supabase_client()
-    existing = client.table("memory_snapshots").select("*").eq("user_id", user_id).eq("session_id", session_id).limit(1).execute()
-    if existing.data:
-        if subject_id and existing.data[0].get("subject_id") not in {None, subject_id}:
-            raise HTTPException(status_code=409, detail="Session is already bound to a different subject")
-        return existing.data[0]
-    profile = get_profile(user_id=user_id)
-    entries = list_memories(user_id=user_id) if profile.get("memoryEnabled", True) else []
-    if subject_id:
-        entries = [entry for entry in entries if entry.get("subject_id") in {None, subject_id}]
-    assistant = "\n§\n".join(entry["content"] for entry in entries if entry["target"] == "assistant_memory")
-    user = "\n§\n".join(entry["content"] for entry in entries if entry["target"] == "user_profile")
-    payload = {"user_id": user_id, "subject_id": subject_id, "session_id": session_id,
-               "assistant_memory": assistant, "user_profile": user,
-               "assistant_chars": len(assistant), "user_chars": len(user)}
-    response = client.table("memory_snapshots").insert(payload).select("*").execute()
-    return response.data[0]
+    return boundary_rpc('freeze_teaching_memory', {'p_user':user_id,'p_session':session_id,'p_subject':subject_id})
+
+
+def boundary_rpc(name: str, values: dict) -> dict:
+    try: return get_supabase_client().rpc(name, values).execute().data
+    except Exception as exc:
+        code = getattr(exc, 'code', None)
+        if code == '42501': raise HTTPException(404, 'Memory source unavailable') from exc
+        if code == '40001': raise HTTPException(409, 'Session subject conflict') from exc
+        if code == '22023': raise HTTPException(422, 'Only stable teaching memory is allowed') from exc
+        raise
+
+
+def study_behavior(*, user_id: str, subject_id: str) -> dict:
+    return boundary_rpc('read_study_behavior', {'p_user':user_id,'p_subject':subject_id})
 
 
 def get_profile(*, user_id: str) -> dict:
@@ -250,11 +259,13 @@ def get_profile(*, user_id: str) -> dict:
     return {"userId": row["user_id"], "displayName": row.get("display_name"), "timezone": row.get("timezone"),
             "level": row.get("level"), "preferredRole": row.get("preferred_role"),
             "responseStyle": row.get("response_style"), "dailyMinutes": row.get("daily_minutes"),
-            "examDate": row.get("exam_date"), "memoryEnabled": row.get("memory_enabled", True),
+            "examDate": None, "memoryEnabled": row.get("memory_enabled", True),
             "writeApproval": row.get("write_approval", False), "metadata": row.get("metadata", {})}
 
 
 def update_profile(*, user_id: str, changes: dict) -> dict:
+    if changes.get('exam_date') is not None:
+        raise HTTPException(422, '考试日期请在当前科目的考试目标中设置。')
     mapping = {"display_name": "display_name", "timezone": "timezone", "level": "level",
                "preferred_role": "preferred_role", "response_style": "response_style",
                "daily_minutes": "daily_minutes", "exam_date": "exam_date",

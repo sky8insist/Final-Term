@@ -29,7 +29,7 @@ code or write to production services.
 
 ## Live MinerU smoke test
 
-Do this only after reviewing the generated fixtures. Copy `.env.example` to
+Do this only after reviewing the generated fixtures. Copy `config.env.template` to
 `.env`, add the experiment token, and explicitly enable live mode:
 
 ```env

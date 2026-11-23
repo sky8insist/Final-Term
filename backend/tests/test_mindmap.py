@@ -37,12 +37,11 @@ def test_planner_rejects_unsupported_non_root_node():
         ]}, focus_question="问题", mode="question", max_depth=3, max_nodes=20, allowed_source_ids={"c1"})
 
 
-def test_service_retries_at_most_once_and_attaches_real_mastery(monkeypatch):
+def test_service_retries_at_most_once_and_does_not_guess_topic_mastery(monkeypatch):
     monkeypatch.setattr(service, "search_subject_context", lambda **_: {
         "citations": [{"id": "c1", "filename": "notes.pdf", "chunkText": "战略决定方向"}],
         "retrieval": {"mode": "hybrid"},
     })
-    monkeypatch.setattr(service, "list_mastery", lambda **_: [{"knowledge_key": "核心概念", "mastery": 0.72}])
     attempts = []
 
     async def fake_generate(*_args, **_kwargs):
@@ -78,6 +77,6 @@ def test_service_retries_at_most_once_and_attaches_real_mastery(monkeypatch):
     ))
     assert len(attempts) == 2
     assert result["content"]["focusQuestion"].startswith("战略是什么")
-    assert result["content"]["nodes"][1]["mastery"] == 0.72
+    assert result["content"]["nodes"][1]["mastery"] is None
     assert result["content"]["edges"][0]["relation"] == "包含"
 

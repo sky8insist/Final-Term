@@ -1,0 +1,131 @@
+{
+  "datasetKind": "offline-chunk-regression",
+  "retriever": "shared-lexical",
+  "caseCount": 8,
+  "strategies": {
+    "baseline": {
+      "completeEvidenceHitAt5": 0.875,
+      "completeEvidenceMRR": 0.71875,
+      "cases": [
+        {
+          "id": "definition-zh",
+          "completeEvidenceHitAt5": 1,
+          "completeEvidenceReciprocalRank": 1.0,
+          "chunkCount": 2,
+          "latencyMs": 1.11
+        },
+        {
+          "id": "definition-en",
+          "completeEvidenceHitAt5": 1,
+          "completeEvidenceReciprocalRank": 1.0,
+          "chunkCount": 1,
+          "latencyMs": 0.04
+        },
+        {
+          "id": "formula-context",
+          "completeEvidenceHitAt5": 1,
+          "completeEvidenceReciprocalRank": 0.25,
+          "chunkCount": 4,
+          "latencyMs": 0.062
+        },
+        {
+          "id": "table-rows",
+          "completeEvidenceHitAt5": 1,
+          "completeEvidenceReciprocalRank": 1.0,
+          "chunkCount": 1,
+          "latencyMs": 0.03
+        },
+        {
+          "id": "sentence-boundary",
+          "completeEvidenceHitAt5": 0,
+          "completeEvidenceReciprocalRank": 0,
+          "chunkCount": 3,
+          "latencyMs": 0.334
+        },
+        {
+          "id": "multiple-headings",
+          "completeEvidenceHitAt5": 1,
+          "completeEvidenceReciprocalRank": 0.5,
+          "chunkCount": 4,
+          "latencyMs": 0.058
+        },
+        {
+          "id": "decimal-en",
+          "completeEvidenceHitAt5": 1,
+          "completeEvidenceReciprocalRank": 1.0,
+          "chunkCount": 1,
+          "latencyMs": 0.022
+        },
+        {
+          "id": "opaque-html-table",
+          "completeEvidenceHitAt5": 1,
+          "completeEvidenceReciprocalRank": 1.0,
+          "chunkCount": 1,
+          "latencyMs": 0.023
+        }
+      ]
+    },
+    "structure": {
+      "completeEvidenceHitAt5": 1.0,
+      "completeEvidenceMRR": 0.84375,
+      "cases": [
+        {
+          "id": "definition-zh",
+          "completeEvidenceHitAt5": 1,
+          "completeEvidenceReciprocalRank": 1.0,
+          "chunkCount": 2,
+          "latencyMs": 0.324
+        },
+        {
+          "id": "definition-en",
+          "completeEvidenceHitAt5": 1,
+          "completeEvidenceReciprocalRank": 1.0,
+          "chunkCount": 1,
+          "latencyMs": 0.054
+        },
+        {
+          "id": "formula-context",
+          "completeEvidenceHitAt5": 1,
+          "completeEvidenceReciprocalRank": 0.25,
+          "chunkCount": 4,
+          "latencyMs": 0.077
+        },
+        {
+          "id": "table-rows",
+          "completeEvidenceHitAt5": 1,
+          "completeEvidenceReciprocalRank": 1.0,
+          "chunkCount": 1,
+          "latencyMs": 0.047
+        },
+        {
+          "id": "sentence-boundary",
+          "completeEvidenceHitAt5": 1,
+          "completeEvidenceReciprocalRank": 1.0,
+          "chunkCount": 3,
+          "latencyMs": 0.468
+        },
+        {
+          "id": "multiple-headings",
+          "completeEvidenceHitAt5": 1,
+          "completeEvidenceReciprocalRank": 0.5,
+          "chunkCount": 4,
+          "latencyMs": 0.08
+        },
+        {
+          "id": "decimal-en",
+          "completeEvidenceHitAt5": 1,
+          "completeEvidenceReciprocalRank": 1.0,
+          "chunkCount": 1,
+          "latencyMs": 0.038
+        },
+        {
+          "id": "opaque-html-table",
+          "completeEvidenceHitAt5": 1,
+          "completeEvidenceReciprocalRank": 1.0,
+          "chunkCount": 1,
+          "latencyMs": 0.029
+        }
+      ]
+    }
+  }
+}

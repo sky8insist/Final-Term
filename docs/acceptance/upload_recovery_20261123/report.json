@@ -1,0 +1,58 @@
+{
+  "startedAt": "2026-11-23T15:00:06.432800+00:00",
+  "owners": [
+    "befacfa9-5660-42c3-83a9-6ebe420bdef8",
+    "01521ac3-299e-450b-ab54-b8d950f291c2"
+  ],
+  "checks": [
+    {
+      "name": "recorded orphan preview is read-only and respects grace period",
+      "status": "passed"
+    },
+    {
+      "name": "abandoned object removed with durable completion and failed-material recovery state",
+      "status": "passed"
+    },
+    {
+      "name": "registered manifest/task destination is excluded from orphan deletion",
+      "status": "passed"
+    },
+    {
+      "name": "manifest reconciliation protects files after lost registration acknowledgement",
+      "status": "passed"
+    },
+    {
+      "name": "registration failure rolls back manifest/task and leaves original intent available for cleanup",
+      "status": "passed"
+    },
+    {
+      "name": "Storage fault retains intent with sanitized error and backoff; retry is idempotent",
+      "status": "passed"
+    },
+    {
+      "name": "stale token and authenticated direct write denied; another owner has no candidates",
+      "status": "passed"
+    },
+    {
+      "name": "real PostgreSQL lock stays held after graph timeout until uncancellable background IO actually ends",
+      "status": "passed"
+    },
+    {
+      "name": "cooperative graph timeout cancels work and releases the real owner transaction",
+      "status": "passed"
+    },
+    {
+      "name": "subject and privacy deletion include pending destinations; export includes intents",
+      "status": "passed"
+    }
+  ],
+  "scope": "local SQL/Storage/real PostgreSQL owner lock; injected graph coroutine, no model/ASR/graph provider",
+  "limitations": [
+    "no continuous Beat or multi-host fault injection",
+    "no historical unrecorded-object scan",
+    "uncancellable providers can keep owner busy until they finish"
+  ],
+  "cleanup": true,
+  "success": true,
+  "finishedAt": "2026-11-23T15:00:12.743441+00:00"
+}

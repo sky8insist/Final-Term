@@ -1,5 +1,6 @@
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -46,6 +47,16 @@ class Settings(BaseSettings):
     # Knowledge-graph extraction is an optional enhancement. Bound it so a
     # slow model provider cannot keep an otherwise searchable material stuck.
     lightrag_index_timeout_seconds: float = Field(default=180.0, gt=0)
+    retrieval_candidate_k: int = Field(default=20, ge=20, le=80)
+    chunk_strategy: Literal["baseline", "structure"] = "structure"
+    chunk_parent_size: int = Field(default=4000, ge=800, le=12000)
+    retrieval_parent_context_chars: int = Field(default=6000, ge=800, le=16000)
+    reranker_mode: Literal["none", "lexical", "http"] = "none"
+    reranker_url: str | None = None
+    reranker_api_key: str | None = None
+    reranker_model: str | None = None
+    reranker_timeout_seconds: float = Field(default=6.0, gt=0, le=30)
+    reranker_cost_per_million: float = Field(default=0, ge=0)
     default_answer_language: str = "zh-CN"
     max_upload_mb: int = 200
 
@@ -75,6 +86,7 @@ class Settings(BaseSettings):
     # environments deterministic while the application is expanded.
     enable_hermes_memory: bool = True
     enable_external_knowledge: bool = False
+    enable_evidence_judge: bool = False
     enable_wikipedia_fallback: bool = True
     wikipedia_language: str = "zh"
 
@@ -99,6 +111,15 @@ class Settings(BaseSettings):
     max_active_tasks_per_user: int = 3
     max_daily_upload_mb: int = 1000
     original_file_retention_days: int = 90
+    upload_cleanup_enabled: bool = False
+    upload_cleanup_grace_seconds: int = Field(default=3600, ge=300, le=86400)
+    # New destructive scheduled sweeps are opt-in; dry-run is available via CLI.
+    data_retention_enabled: bool = False
+    retention_audit_days: int = Field(default=180, ge=120, le=3650)
+    retention_metric_days: int = Field(default=365, ge=120, le=3650)
+    retention_event_days: int = Field(default=180, ge=120, le=3650)
+    retention_batch_size: int = Field(default=200, ge=1, le=1000)
+    retention_asset_batch_size: int = Field(default=50, ge=1, le=100)
     model_call_budget: float = Field(
         default=35.0,
         validation_alias=AliasChoices("MODEL_CALL_BUDGET", "MODEL_CALL_BUDGET_USD"),

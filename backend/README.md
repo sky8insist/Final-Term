@@ -1,6 +1,6 @@
 # Exam AI Assistant Backend
 
-FastAPI backend skeleton for a short-term exam review assistant.
+FastAPI services for the learning workspace. Current deployment requires database migrations through 061, Supabase Auth/Storage, pgvector and Redis.
 
 ## Run
 
@@ -18,7 +18,7 @@ uvicorn app.main:app --reload
 
 ## Acceptance
 
-End-to-end MVP acceptance tooling lives in `scripts/`.
+Acceptance tools live in `scripts/`. Current progress and scoped evidence are indexed in [the handoff](../HANDOFF.md) and [acceptance records](../docs/acceptance/README.md).
 
 ```bash
 python scripts/e2e_acceptance.py --generate-only

@@ -5,6 +5,7 @@ import re
 from queue import Queue
 from threading import Thread
 import threading
+from time import monotonic
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
@@ -15,6 +16,7 @@ from lightrag.utils import EmbeddingFunc, Tokenizer
 from app.config.settings import settings
 from app.services.embedding_service import embed_texts
 from app.services.llm_service import generate_text_async
+from app.services.owner_io_service import serialized_owner, pin_owner_io
 
 CHUNK_MARKER_PATTERN = re.compile(
     r"\[material_id=(?P<material_id>[^\]\s]+)\s+filename=(?P<filename>.*?)"
@@ -183,6 +185,7 @@ async def _delete_material_async(*, user_id: str, subject_id: str,
         await rag.finalize_storages()
 
 
+@serialized_owner
 def index_material(
     *,
     user_id: str,
@@ -194,36 +197,58 @@ def index_material(
 ) -> str:
     results: Queue[tuple[str, object]] = Queue(maxsize=1)
     context = copy_context()
+    timeout = settings.lightrag_index_timeout_seconds
+    deadline = monotonic() + timeout
+    cancelled = threading.Event()
+    release_owner = pin_owner_io(user_id)
+    # Capture the coroutine before starting: a delayed thread must not pick up
+    # a different function/configuration after its caller has already returned.
+    index_async = _index_material_async
 
     def run_index() -> None:
         try:
-            with _RAG_ENV_LOCK:
+            acquired = _RAG_ENV_LOCK.acquire(timeout=max(0, deadline-monotonic()))
+            if not acquired:
+                raise TimeoutError()
+            try:
+                if cancelled.is_set() or monotonic() >= deadline:
+                    raise TimeoutError()
                 value = asyncio.run(
-                    _index_material_async(
+                    asyncio.wait_for(index_async(
                         user_id=user_id,
                         subject_id=subject_id,
                         material_id=material_id,
                         filename=filename,
                         chunks=chunks,
                         embedding_dimension=embedding_dimension,
-                    )
+                    ), timeout=max(.001, deadline-monotonic()))
                 )
+            finally:
+                _RAG_ENV_LOCK.release()
             results.put(("ok", value))
         except BaseException as exc:
             results.put(("error", exc))
+        finally:
+            release_owner()
 
     worker = Thread(target=lambda: context.run(run_index), daemon=True, name=f"lightrag-index-{material_id}")
-    worker.start()
-    worker.join(settings.lightrag_index_timeout_seconds)
+    try:
+        worker.start()
+    except BaseException:
+        release_owner()
+        raise
+    worker.join(timeout + .05)
     if worker.is_alive():
-        timeout_seconds = settings.lightrag_index_timeout_seconds
+        cancelled.set()
         raise LightRAGServiceError(
-            f"LightRAG indexing timed out after {timeout_seconds:g} seconds"
+            f"LightRAG indexing timed out after {timeout:g} seconds"
         )
     state, value = results.get_nowait()
     if state == "ok":
         return str(value)
     exc = value
+    if isinstance(exc, TimeoutError):
+        raise LightRAGServiceError(f"LightRAG indexing timed out after {timeout:g} seconds") from exc
     if isinstance(exc, BaseException):
         if isinstance(exc, LightRAGServiceError):
             raise
@@ -256,6 +281,7 @@ def search_context(
         raise LightRAGServiceError("LightRAG retrieval failed") from exc
 
 
+@serialized_owner
 def delete_material_index(*, user_id: str, subject_id: str,
                           material_id: str, embedding_dimension: int) -> None:
     try:

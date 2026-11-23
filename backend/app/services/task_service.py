@@ -80,6 +80,13 @@ def update_task(*, user_id: str, task_id: str, **changes) -> dict:
 
 def cancel_task(*, user_id: str, task_id: str) -> dict:
     task = get_task(user_id=user_id, task_id=task_id)
+    if task.get('taskType') == 'learning_conversion':
+        from app.services.conversion_service import transition
+        return transition(user_id=user_id, conversion_id=task_id, action='cancel')
+    if task.get('taskType') == 'material_ingestion':
+        return _serialize(get_supabase_client().rpc('cancel_material_ingestion', {
+            'p_user': user_id, 'p_task': task_id,
+        }).execute().data)
     if task["status"] in {"succeeded", "failed", "cancelled"}:
         return task
     return update_task(
@@ -90,6 +97,26 @@ def cancel_task(*, user_id: str, task_id: str) -> dict:
 
 def retry_task(*, user_id: str, task_id: str) -> dict:
     task = get_task(user_id=user_id, task_id=task_id)
+    if task.get('taskType') == 'learning_conversion':
+        from app.services.conversion_service import transition
+        return transition(user_id=user_id, conversion_id=task_id, action='retry')
+    if task.get('taskType') == 'material_ingestion':
+        try:
+            from app.services.owner_io_service import hold_owner_io
+            with hold_owner_io(user_id):
+                row = get_supabase_client().rpc("retry_material_ingestion", {
+                    "p_user": user_id, "p_task": task_id,
+                }).execute().data
+        except Exception as exc:
+            code = getattr(exc, "code", None)
+            if code == "42501":
+                raise HTTPException(404, "处理任务不存在") from exc
+            if code == "22023":
+                raise HTTPException(409, "原文件已过期或不可用，请重新上传") from exc
+            if code in {"40001", "23505"}:
+                raise HTTPException(409, "资料已在处理、已入库或已有相同文件，请刷新列表") from exc
+            raise
+        return _serialize(row)
     if task["status"] != "failed":
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Only failed tasks can be retried")
     if task["attempts"] >= task["maxAttempts"]:

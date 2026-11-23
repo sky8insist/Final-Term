@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
+from uuid import UUID
 
 from app.api.deps import get_current_user
 from app.models.memory import LearnerProfileUpdate, MemoryWrite
@@ -10,8 +11,8 @@ router = APIRouter()
 
 
 class SnapshotRequest(BaseModel):
-    session_id: str = Field(validation_alias="sessionId")
-    subject_id: str | None = Field(default=None, validation_alias="subjectId")
+    session_id: UUID = Field(validation_alias="sessionId")
+    subject_id: UUID | None = Field(default=None, validation_alias="subjectId")
 
 
 class SessionSearchRequest(BaseModel):
@@ -66,7 +67,7 @@ def replace_memory(memory_id: str, payload: MemoryWrite,
         raise HTTPException(status_code=404, detail="Memory not found")
     return hermes_memory_service.request_write(
         user_id=current_user.id, action="replace", target=entry["target"],
-        subject_id=payload.subject_id, old_text=entry["content"], content=payload.content,
+        subject_id=entry.get('subject_id'), old_text=entry["content"], content=payload.content,
         confidence=payload.confidence, importance=payload.importance, reason=payload.reason,
         require_approval=payload.require_approval,
     )
@@ -105,13 +106,18 @@ def reject_write(request_id: str, current_user: CurrentUser = Depends(get_curren
 @router.post("/memory-snapshots")
 def create_snapshot(payload: SnapshotRequest, current_user: CurrentUser = Depends(get_current_user)):
     return hermes_memory_service.create_snapshot(
-        user_id=current_user.id, session_id=payload.session_id, subject_id=payload.subject_id,
+        user_id=current_user.id, session_id=str(payload.session_id), subject_id=str(payload.subject_id) if payload.subject_id else None,
     )
 
 
 @router.get("/learner-profile")
 def get_profile(current_user: CurrentUser = Depends(get_current_user)):
     return hermes_memory_service.get_profile(user_id=current_user.id)
+
+
+@router.get('/learner-profile/study-behavior')
+def study_behavior(subject_id: UUID, current_user: CurrentUser = Depends(get_current_user)):
+    return hermes_memory_service.study_behavior(user_id=current_user.id, subject_id=str(subject_id))
 
 
 @router.patch("/learner-profile")

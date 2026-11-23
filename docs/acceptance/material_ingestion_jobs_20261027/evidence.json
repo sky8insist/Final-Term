@@ -1,0 +1,103 @@
+{
+  "schemaVersion": 1,
+  "scope": "local private ingestion/TXT/SQL/Storage/Redis/solo worker; embedding and graph are explicit substitutes",
+  "backendRegression": {
+    "passed": 922,
+    "warnings": 3,
+    "finalTargetedPassed": 85
+  },
+  "files": [
+    {
+      "path": "backend/migrations/060_material_ingestion_jobs.sql",
+      "sha256": "991fb47d1ce1585c814724e550ea01c6e0f1d68c37fc51da08d62a87eb315b86"
+    },
+    {
+      "path": "backend/app/services/owner_io_service.py",
+      "sha256": "81f4cf33f245b57e43a35c216f24088bbb237562b98f66f97ae26ef1ce73e37c"
+    },
+    {
+      "path": "backend/app/services/material_ingestion_job_service.py",
+      "sha256": "1a42a4d0fb35558ef1b1b376cdbd06e6253a3dbf29e81b2f9a7fa8c14dc7ab1b"
+    },
+    {
+      "path": "backend/app/services/ingestion_service.py",
+      "sha256": "1981e339b2db6e0509a7af8849db783860c56349ac6712e8a1987848c9a2fcbb"
+    },
+    {
+      "path": "backend/app/services/material_service.py",
+      "sha256": "f1eff13f8eb90cb11b73c113ebfe719af5ac43ee4c6651933f302acee65d6f66"
+    },
+    {
+      "path": "backend/app/services/privacy_service.py",
+      "sha256": "59341a14959a7cfc7faa9a29947074482d53e27f715fa75bfb3f695dbe2c00b9"
+    },
+    {
+      "path": "backend/app/services/subject_service.py",
+      "sha256": "d3b01c216ebd5c4e2298a32ea21238e58c04b6037f3e9e461713dce7f0a2c391"
+    },
+    {
+      "path": "backend/app/services/task_service.py",
+      "sha256": "0b5d213ca0ab1b6d6e88a8f4871d118878a35fc6cabb316ece3a0c6c6292890e"
+    },
+    {
+      "path": "backend/app/services/retention_service.py",
+      "sha256": "9d22a416e318db571e9305c36a0cddafff80c27443f045b88c872d7df8add6b5"
+    },
+    {
+      "path": "backend/app/worker/tasks.py",
+      "sha256": "c12ea9dc15c3c8de1ed41acc594b94351a8899e09f428d5131aaca203a8296d8"
+    },
+    {
+      "path": "backend/app/worker/celery_app.py",
+      "sha256": "4021042bfb8e93a154bf01d2b4c1db7108cddfcf3fd6458f4f47f5c594ba6d7e"
+    },
+    {
+      "path": "backend/app/worker/recover.py",
+      "sha256": "a1a78994ef6b7bb5411c1d37792d0ba19f605ceff5c22e6eb4f040c10ecd1370"
+    },
+    {
+      "path": "backend/tests/conftest.py",
+      "sha256": "6a57b3f433a8b2d031a17ec4925af3a144aa75a999638e25e890997c69551332"
+    },
+    {
+      "path": "backend/tests/test_material_ingestion_jobs.py",
+      "sha256": "8ed9f0ebfcad9de636b6d9075575a6e34de6fbdf1bc5b0123f255b56238f2dff"
+    },
+    {
+      "path": "backend/tests/test_material_recovery.py",
+      "sha256": "0101b2dfdeea5d7cfebd36782c05a75f5f81c92f24ee3b9dc770f069c2fd38fb"
+    },
+    {
+      "path": "backend/tests/test_material_outline.py",
+      "sha256": "f82fd62e6e61087807258a66cb2c2cf46264ae8eb7e9c08c9e85ceaefaed881e"
+    },
+    {
+      "path": "backend/tests/test_upload_notes.py",
+      "sha256": "d323e416f40343d43139b50eca58307deda5ac7891da9b82633e349459bd5739"
+    },
+    {
+      "path": "backend/tests/test_worker_recovery.py",
+      "sha256": "a02fea701708afc08839dd1ccb99fbb3eb7de4edb194d73fb24ed3e13af9c3dd"
+    },
+    {
+      "path": "backend/scripts/verify_material_ingestion_jobs.py",
+      "sha256": "7fd1584f10a650677e81e93cd3d0e5722f007fd2df951cdb4f3947deace08f3e"
+    },
+    {
+      "path": "docs/MATERIAL_INGESTION_JOBS.md",
+      "sha256": "7cb314483bf7f007521d68c6733f43f79e9e7168ba7aed3e49464812812cd851"
+    },
+    {
+      "path": "docs/acceptance/MATERIAL_INGESTION_JOBS_20261027.md",
+      "sha256": "4354ec0d1e41d443d62d74e6e951ecc51a55e472686b0bf1989084f7bac7e862"
+    },
+    {
+      "path": "docs/acceptance/material_ingestion_jobs_20261027/report.json",
+      "sha256": "c67e502cf51d30b8d5ecad3b892fdab31326d1eefd805a2c259824f74bdbb302"
+    },
+    {
+      "path": "docs/acceptance/material_ingestion_jobs_20261027/initial-report.json",
+      "sha256": "11c19dfee578bb6fd14293320c02d5592273a4b6d9e95d871e7fc478c303acb9"
+    }
+  ]
+}

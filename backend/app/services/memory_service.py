@@ -48,6 +48,19 @@ def normalize_retrieval_citations(citations: list[dict]) -> list[dict]:
                 }
             )
         )
+    # Parent evidence gets its own source location rather than borrowing the
+    # primary child's page. This also keeps saved chat history self-contained.
+    seen = {item["id"] for item in normalized}
+    for item in citations:
+        for block in item.get("contextBlocks") or []:
+            block_id = str(block["blockId"])
+            if block_id in seen: continue
+            seen.add(block_id)
+            normalized.append(_to_citation({"id": block_id, "materialId": block["materialId"],
+                "sourceName": item.get("filename") or item.get("sourceName") or "Unknown source",
+                "text": block["text"], "blockType": block.get("blockType"), "pageNumber": block.get("pageNumber"),
+                "startTime": block.get("startTime"), "endTime": block.get("endTime"),
+                "boundingBox": block.get("boundingBox"), "retrievalSource": "parent-context"}))
     return normalized
 
 

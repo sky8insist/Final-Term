@@ -80,4 +80,4 @@ def test_need_score_explains_all_weighted_components():
         "hintRequestCount": 1, "importance": 0.8,
     }, now=datetime(2026, 8, 23, tzinfo=timezone.utc))
     assert 0 < score <= 1
-    assert set(components) == {"masteryGap", "practiceLoss", "forgetting", "dialogueConfusion", "importance", "dataConfidence"}
+    assert set(components) == {"masteryGap", "practiceLoss", "forgetting", "dialogueConfusion", "importance", "dataConfidence", "confidenceMismatch"}

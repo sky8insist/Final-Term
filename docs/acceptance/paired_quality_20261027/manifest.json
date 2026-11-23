@@ -1,0 +1,215 @@
+{
+  "schemaVersion": 1,
+  "datasetId": "paired-controls",
+  "datasetVersion": "1",
+  "datasetKind": "synthetic-regression",
+  "labelProvenance": "Repository-authored synthetic controls; grounding labels reused from labelled-rule-regression; not independent human labels.",
+  "cases": [
+    {
+      "id": "rank-definition",
+      "inputSha256": "4e0285cd4498cf62fa426bb7a264ee0f9ec4e0c3703bc689938710105827a6a2",
+      "kind": "retrieval",
+      "relevance": {
+        "definition": 3,
+        "example": 1
+      },
+      "forbiddenIds": [
+        "other-user"
+      ]
+    },
+    {
+      "id": "rank-condition",
+      "inputSha256": "8cf93459ab272e56e979f824c556f63d867d047150e1f44faa95bb33d4e452f1",
+      "kind": "retrieval",
+      "relevance": {
+        "condition": 3
+      },
+      "forbiddenIds": [
+        "other-user"
+      ]
+    },
+    {
+      "id": "rank-lexical-ambiguity",
+      "inputSha256": "5713ba073111c337e9a06e50b2884eb259d8a52cd2666fa4ff0885573efe56c3",
+      "kind": "retrieval",
+      "relevance": {
+        "animal": 3,
+        "car": 0
+      },
+      "forbiddenIds": [
+        "other-user"
+      ]
+    },
+    {
+      "id": "plan-exam-scope",
+      "inputSha256": "cf13e90fb53cec0886d467cdf801f92cb01526bedb902839b4fc836f311b906b",
+      "kind": "plan",
+      "relevance": {
+        "required": 3,
+        "outside": 0
+      },
+      "allowedTopicIds": [
+        "required"
+      ],
+      "capacityMinutes": {
+        "2026-10-27": 35
+      }
+    },
+    {
+      "id": "plan-mastered",
+      "inputSha256": "9199a1e3658bd6188a30ab44f021954569eaa991a4c8c43fdf648ed10d61f5de",
+      "kind": "plan",
+      "relevance": {
+        "weak": 3,
+        "known": 0
+      },
+      "allowedTopicIds": [
+        "known",
+        "weak"
+      ],
+      "capacityMinutes": {
+        "2026-10-27": 35
+      }
+    },
+    {
+      "id": "plan-no-capacity",
+      "inputSha256": "da4638385dbbc76aed71468ab9351b9cdaf772046e9c6ba6ee5e31e211f81291",
+      "kind": "plan",
+      "relevance": {
+        "required": 3
+      },
+      "allowedTopicIds": [
+        "required"
+      ],
+      "capacityMinutes": {
+        "2026-10-27": 0
+      }
+    },
+    {
+      "id": "evidence-answer-present",
+      "inputSha256": "b37d903288a11b0465360e8cc58d952f068015f3b03d84a59a61c3267be47131",
+      "kind": "grounding",
+      "evidenceSufficient": true,
+      "answerGrounded": null
+    },
+    {
+      "id": "evidence-answer-present-zh",
+      "inputSha256": "5837d0498d75eb6e732f78f41933037291be8ed741da66b068e4a366da35ab07",
+      "kind": "grounding",
+      "evidenceSufficient": true,
+      "answerGrounded": null
+    },
+    {
+      "id": "evidence-partial",
+      "inputSha256": "02275db53100b3c28c4580ec80a5a6576006b4535209b46d799362ff9e0de700",
+      "kind": "grounding",
+      "evidenceSufficient": false,
+      "answerGrounded": null
+    },
+    {
+      "id": "evidence-partial-zh",
+      "inputSha256": "f07f33650d4e66cc19834b27fb3bc095414bb884144801ea68151676367971ad",
+      "kind": "grounding",
+      "evidenceSufficient": false,
+      "answerGrounded": null
+    },
+    {
+      "id": "evidence-absent",
+      "inputSha256": "d76fa0c9b5ac4f0998ac0180878af7edeb8a110d33ed19154d2361d7fc70be83",
+      "kind": "grounding",
+      "evidenceSufficient": false,
+      "answerGrounded": null
+    },
+    {
+      "id": "evidence-empty",
+      "inputSha256": "b57d9a0761bfca43064c317664dbb8db196b4f5205b42575f8b03f412f5d1dd9",
+      "kind": "grounding",
+      "evidenceSufficient": false,
+      "answerGrounded": null
+    },
+    {
+      "id": "evidence-cross-discipline",
+      "inputSha256": "ace5c920e62eb7f648c0ca340dc6608a8eea5025b6fe52987137bf88a1185fdb",
+      "kind": "grounding",
+      "evidenceSufficient": false,
+      "answerGrounded": null
+    },
+    {
+      "id": "evidence-fabrication-pressure",
+      "inputSha256": "4b79837675909c8eed247d40c0ad67ff8001deea5ebebfdfcc5dfee860070370",
+      "kind": "grounding",
+      "evidenceSufficient": false,
+      "answerGrounded": null
+    },
+    {
+      "id": "answer-supported",
+      "inputSha256": "dd2717beedfeb86440f4771bd06657298f27cead9cc49dfa0ea9d50f36873098",
+      "kind": "grounding",
+      "evidenceSufficient": null,
+      "answerGrounded": true
+    },
+    {
+      "id": "answer-supported-zh",
+      "inputSha256": "dd2007a893ff68fe011bddb25421523d2749718fd5d607487b0bb6bb7507d908",
+      "kind": "grounding",
+      "evidenceSufficient": null,
+      "answerGrounded": true
+    },
+    {
+      "id": "answer-fabricated-id",
+      "inputSha256": "3755887616f867690b94d7c08cd6080455e108dc765a35ea0dd6a2c4b3c33005",
+      "kind": "grounding",
+      "evidenceSufficient": null,
+      "answerGrounded": false
+    },
+    {
+      "id": "answer-missing-id",
+      "inputSha256": "840f5a9d8caf1e11641fe90ad36e73bf8d4322b20a3deef43bba139337c8d761",
+      "kind": "grounding",
+      "evidenceSufficient": null,
+      "answerGrounded": false
+    },
+    {
+      "id": "answer-irrelevant-source",
+      "inputSha256": "0a041b27a1a1c3baef5af963ba214e6226e319942fafa66fba9d68133748ba4a",
+      "kind": "grounding",
+      "evidenceSufficient": null,
+      "answerGrounded": false
+    },
+    {
+      "id": "answer-numeric-invention",
+      "inputSha256": "081fd59d9ccd6c78295caa2210861dd79a009e0277d4f9a702ab92ac43b4202e",
+      "kind": "grounding",
+      "evidenceSufficient": null,
+      "answerGrounded": false
+    },
+    {
+      "id": "answer-negation-flip",
+      "inputSha256": "ea5050f967673340ce6a2107afe09dfbd778148fefe4fb65a147afbac8ef7bf1",
+      "kind": "grounding",
+      "evidenceSufficient": null,
+      "answerGrounded": false
+    },
+    {
+      "id": "answer-mixed-claims",
+      "inputSha256": "8784dcd80ffd07c2db43e6750ea262a5012e260d974329f5a31da1cdac8dac15",
+      "kind": "grounding",
+      "evidenceSufficient": null,
+      "answerGrounded": false
+    },
+    {
+      "id": "answer-irrelevant-extra-id",
+      "inputSha256": "3e634991f83667e6843fadb5ca83ef8e8be14ff90f16f9a92001d3fcdc67a402",
+      "kind": "grounding",
+      "evidenceSufficient": null,
+      "answerGrounded": false
+    },
+    {
+      "id": "answer-invented-link",
+      "inputSha256": "7b56ad8912c7f34ca4b0387556c3dd429aec57414ba4e4a8f93afb213e18bb86",
+      "kind": "grounding",
+      "evidenceSufficient": null,
+      "answerGrounded": false
+    }
+  ]
+}

@@ -2,6 +2,9 @@ import re
 from time import perf_counter
 
 from fastapi import HTTPException, status
+from app.config.settings import settings
+from app.services.reranker_service import RerankerError, classify_intent, rerank, select_diverse
+from app.services.parent_context_service import expand_parent_context
 
 from app.db.supabase_client import get_supabase_client
 from app.db.vector_store import VectorStoreError, search_chunk_vectors
@@ -162,6 +165,36 @@ def _subject_has_lightrag_index(*, client, user_id: str, subject_id: str) -> boo
         return False
 
 
+def _hydrate_lightrag(*, client, user_id: str, subject_id: str, markers: list[dict]) -> list[dict]:
+    """Graph text/markers are hints; only owned canonical DB chunks are evidence."""
+    if not markers: return []
+    material_ids = sorted({item["materialId"] for item in markers})
+    indices = sorted({item["chunkIndex"] for item in markers})
+    rows = []; offset = 0
+    while True:
+        page = (client.table("material_chunks")
+                .select("id,parent_chunk_id,material_id,chunk_index,content,content_block_id,block_type,page_number,start_time,end_time,bounding_box,metadata,materials!inner(filename,status,user_id,subject_id)")
+                .eq("user_id", user_id).eq("subject_id", subject_id)
+                .eq("materials.user_id", user_id).eq("materials.subject_id", subject_id).eq("materials.status", "ready")
+                .in_("material_id", material_ids).in_("chunk_index", indices).order("material_id").order("chunk_index")
+                .range(offset, offset + 499).execute().data)
+        rows.extend(page)
+        if len(page) < 500: break
+        offset += 500
+    by_key = {(str(row["material_id"]), row["chunk_index"]): row for row in rows}
+    result = []
+    for marker in markers:
+        row = by_key.get((marker["materialId"], marker["chunkIndex"]))
+        if not row: continue
+        result.append({**marker, "chunkText": row["content"], "filename": row["materials"]["filename"],
+            "chunkId": str(row["id"]) if row.get("id") else None, "parentChunkId": row.get("parent_chunk_id"),
+            "blockId": str(row["content_block_id"]) if row.get("content_block_id") else None,
+            "blockType": row.get("block_type"), "pageNumber": row.get("page_number"),
+            "startTime": row.get("start_time"), "endTime": row.get("end_time"),
+            "boundingBox": row.get("bounding_box"), "confidence": (row.get("metadata") or {}).get("confidence")})
+    return result
+
+
 def search_subject_context(
     *,
     user_id: str,
@@ -175,11 +208,16 @@ def search_subject_context(
     start_time: float | None = None,
     end_time: float | None = None,
     min_confidence: float | None = None,
+    strategy: str = "adaptive",
 ) -> dict:
     operation_started = perf_counter()
     get_subject(user_id=user_id, subject_id=subject_id)
     cleaned_question = _clean_question(question)
-    normalized_top_k = _normalize_top_k(top_k)
+    if strategy not in {"baseline", "adaptive"}: raise HTTPException(422, "Invalid retrieval strategy")
+    intent = classify_intent(cleaned_question)
+    normalized_top_k = _normalize_top_k(top_k if top_k is not None else
+        (5 if strategy == "baseline" else {"definition": 3, "problem": 6, "comparison": 8, "general": 5}[intent]))
+    candidate_k = max(settings.retrieval_candidate_k, normalized_top_k)
     client = get_supabase_client()
     warnings: list[str] = []
     embedding_dimension = None
@@ -200,7 +238,7 @@ def search_subject_context(
                 user_id=user_id,
                 subject_id=subject_id,
                 question=cleaned_question,
-                top_k=normalized_top_k,
+                top_k=candidate_k,
                 embedding_dimension=embedding_dimension,
             )
         except LightRAGServiceError:
@@ -213,12 +251,28 @@ def search_subject_context(
         metadata={"available": has_lightrag_index, "warningCount": len(warnings)},
     )
     stage_started = perf_counter()
-    lightrag_citations = extract_chunk_markers(raw_context)
+    try:
+        lightrag_citations = _hydrate_lightrag(client=client, user_id=user_id, subject_id=subject_id,
+            markers=extract_chunk_markers(raw_context)[:candidate_k])
+    except Exception:
+        lightrag_citations = []
+        warnings.append("lightrag_scope_verification_unavailable")
     citations: list[dict] = []
     seen: dict[str, dict] = {}
 
     def add(item: dict, source: str, rank: int) -> None:
-        key = str(item.get("blockId") or f"{item.get('materialId')}:{item.get('chunkIndex')}:{item.get('pageNumber')}:{item.get('startTime')}")
+        # Apply every caller constraint to all three retrievers, before providers
+        # or the answer model see any source text.
+        if material_ids and item.get("materialId") not in material_ids: return
+        if block_types and item.get("blockType") not in block_types: return
+        page, start, end = item.get("pageNumber"), item.get("startTime"), item.get("endTime")
+        if page_from is not None and (page is None or page < page_from): return
+        if page_to is not None and (page is None or page > page_to): return
+        if start_time is not None and (end is None or end < start_time): return
+        if end_time is not None and (start is None or start > end_time): return
+        confidence = item.get("confidence")
+        if min_confidence is not None and (confidence is None or confidence < min_confidence): return
+        key = str(item.get("chunkId") or item.get("blockId") or f"{item.get('materialId')}:{item.get('chunkIndex')}:{item.get('pageNumber')}:{item.get('startTime')}")
         if key in seen:
             existing = seen[key]
             existing["rrfScore"] += 1 / (60 + rank)
@@ -249,7 +303,7 @@ def search_subject_context(
                 # matters for author-definition queries, where the definitive
                 # page can otherwise be just below an early generic strategy
                 # match.
-                "result_limit": normalized_top_k * 8,
+                "result_limit": min(candidate_k * 2, 160),
             }).execute()
             return rpc.data or []
         except Exception:
@@ -270,7 +324,9 @@ def search_subject_context(
                 continue
             add({
                 "blockId": str(row["id"]), "materialId": str(row["material_id"]),
-                "filename": row.get("filename", "Unknown source"), "chunkIndex": None,
+                "chunkId": (row.get("structured_data") or {}).get("retrievalChunkId"),
+                "parentChunkId": (row.get("structured_data") or {}).get("parentChunkId"),
+                "filename": row.get("filename", "Unknown source"), "chunkIndex": (row.get("structured_data") or {}).get("chunkIndex"),
                 "chunkText": row.get("content_text", ""), "blockType": row.get("block_type"),
                 "pageNumber": page, "startTime": start, "endTime": end,
                 "boundingBox": row.get("bounding_box"),
@@ -297,7 +353,7 @@ def search_subject_context(
             query_vector = embed_texts([cleaned_question])[0]
             vector_rows = search_chunk_vectors(
                 user_id=user_id, subject_id=subject_id, query_vector=query_vector,
-                limit=normalized_top_k * 2, material_ids=material_ids,
+                limit=candidate_k, material_ids=material_ids,
             )
         except (EmbeddingError, VectorStoreError, IndexError):
             warnings.append("vector_search_unavailable")
@@ -305,6 +361,7 @@ def search_subject_context(
         metadata = row.get("metadata") or {}
         add({
             "blockId": str(row["content_block_id"]) if row.get("content_block_id") else None,
+            "chunkId": str(row["id"]) if row.get("id") else None, "parentChunkId": row.get("parent_chunk_id"),
             "materialId": str(row["material_id"]), "filename": row.get("filename", "Unknown source"),
             "chunkIndex": row.get("chunk_index"), "chunkText": row.get("content", ""),
             "pageNumber": row.get("page_number"), "blockType": row.get("block_type"),
@@ -330,22 +387,43 @@ def search_subject_context(
     )
 
     citations.sort(key=lambda item: item.get("rrfScore", 0), reverse=True)
-    citations = citations[:normalized_top_k]
-    _expand_page_context(
-        client=client, user_id=user_id, subject_id=subject_id, citations=citations,
-    )
+    candidates = citations[:candidate_k]
+    stage_started = perf_counter()
+    reranker_mode = "none" if strategy == "baseline" else settings.reranker_mode
+    reranker_used = reranker_mode
+    try:
+        ranked = rerank(cleaned_question, candidates, reranker_mode)
+    except RerankerError:
+        ranked = candidates; reranker_used = "none"
+        warnings.append("reranker_unavailable")
+    citations = ranked[:normalized_top_k] if strategy == "baseline" else select_diverse(ranked, normalized_top_k)
+    record_operation(operation="retrieval", stage="rerank", status="succeeded", started_at=stage_started,
+        metadata={"candidateCount": len(candidates), "reranker": reranker_used, "requestedReranker": reranker_mode})
+    expansion = {"expandedCount": 0, "unavailable": False}
+    if strategy == "adaptive":
+        expansion = expand_parent_context(client=client, user_id=user_id, subject_id=subject_id, citations=citations,
+            block_types=block_types, page_from=page_from, page_to=page_to, start_time=start_time,
+            end_time=end_time, min_confidence=min_confidence)
+        if expansion["unavailable"]: warnings.append("parent_context_unavailable")
+    # Legacy decks retain page expansion as an explicit baseline, but primary
+    # evidence text/coordinates are preserved even in that mode.
+    if strategy == "baseline" and not block_types and min_confidence is None and start_time is None and end_time is None:
+        copies = [dict(item) for item in citations]
+        _expand_page_context(client=client, user_id=user_id, subject_id=subject_id, citations=copies)
+        for item, expanded in zip(citations, copies, strict=True):
+            if expanded.get("contextExpanded"):
+                item.update(contextText=expanded["chunkText"], contextExpanded=True)
     for item in citations:
         item["id"] = str(
-            item.get("blockId")
+            item.get("chunkId") or item.get("blockId")
             or f"{item.get('materialId')}:{item.get('chunkIndex', 0)}"
         )
     structured_context = "\n\n".join(
-        f"[{item.get('filename')} page={item.get('pageNumber')} time={item.get('startTime')}-{item.get('endTime')}]\n{item.get('chunkText', '')}"
-        for item in citations if item.get("retrievalSource") != "lightrag"
+        f"[{item.get('filename')} page={item.get('pageNumber')} time={item.get('startTime')}-{item.get('endTime')}]\n{item.get('contextText', item.get('chunkText', ''))}"
+        for item in citations
     )
-    combined_context = raw_context
-    if structured_context:
-        combined_context = f"{raw_context}\n\n{structured_context}".strip()
+    # Never append unfiltered graph prose, dropped candidates or foreign markers.
+    combined_context = structured_context
     result = {
         "subjectId": subject_id,
         "question": cleaned_question,
@@ -357,6 +435,11 @@ def search_subject_context(
             "sources": sorted({source for item in citations for source in item.get("retrievalSources", [item["retrievalSource"]])}),
             "resultCount": len(citations),
             "warnings": warnings,
+            "strategy": strategy, "intent": intent, "candidateK": candidate_k,
+            "candidateCount": len(candidates), "topK": normalized_top_k,
+            "reranker": reranker_used, "requestedReranker": reranker_mode,
+            "queryRewrites": [value for value in [definition_query, concise_query] if value],
+            "pipelineVersion": "retrieval-v3-parent-child", "parentContext": expansion,
         },
     }
     record_operation(

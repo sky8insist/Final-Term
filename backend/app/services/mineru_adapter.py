@@ -9,6 +9,7 @@ from zipfile import BadZipFile, ZipFile
 
 from app.config.settings import settings
 from app.services.mineru_client import MinerUError
+from app.services.document_structure_service import reported_confidence
 
 
 PARSER_NAME = "mineru-v4"
@@ -65,7 +66,12 @@ def _bbox(value) -> dict | None:
 def _block(entry: dict, text: str, sequence: int) -> dict:
     kind = str(entry.get("type", "text"))
     if kind == "text":
-        block_type = "heading" if int(entry.get("text_level") or 0) > 0 else "paragraph"
+        try:
+            level = float(entry.get('text_level') or 0)
+            heading = not isinstance(entry.get('text_level'), bool) and level.is_integer() and 1 <= level <= 6
+        except (ValueError, TypeError):
+            heading = False
+        block_type = "heading" if heading else "paragraph"
     elif kind == "equation":
         block_type = "formula"
     elif kind in {"table", "image", "chart"}:
@@ -86,9 +92,10 @@ def _block(entry: dict, text: str, sequence: int) -> dict:
         "sequence_index": sequence,
         "parser_name": PARSER_NAME,
         "parser_version": PARSER_VERSION,
-        "confidence": 1.0,
+        "confidence": reported_confidence(entry.get('confidence')),
         "source_hash": hashlib.sha256(identity).hexdigest(),
-        "metadata": {"primaryParser": True, "ocrUsed": False},
+        "metadata": {"primaryParser": True, "ocrUsed": False,
+                     'confidenceSource': 'provider_reported' if reported_confidence(entry.get('confidence')) is not None else 'unreported'},
     }
 
 
@@ -111,7 +118,7 @@ def read_mineru_bundle(bundle: bytes, *, image_ocr: bool = False) -> MinerUBundl
             if len(candidates) != 1:
                 raise MinerUError("Expected one stable content_list.json in MinerU result", code="missing_content_list")
             try:
-                content = json.loads(archive.read(candidates[0]).decode("utf-8"))
+                content = json.loads(archive.read(candidates[0]).decode("utf-8"), parse_constant=lambda _: None)
             except (UnicodeDecodeError, json.JSONDecodeError) as exc:
                 raise MinerUError("MinerU content list is invalid", code="invalid_content_list") from exc
             if not isinstance(content, list):

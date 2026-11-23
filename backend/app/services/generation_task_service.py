@@ -16,7 +16,7 @@ def create_generation_task(
     *, user_id: str, payload, task_type: str, idempotency_prefix: str,
     result_metadata: dict,
 ) -> dict:
-    request_data = payload.model_dump(by_alias=True)
+    request_data = payload.model_dump(mode="json", by_alias=True)
     fingerprint = payload_fingerprint(request_data)
     active = (
         get_supabase_client().table("processing_tasks")

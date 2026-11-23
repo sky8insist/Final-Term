@@ -101,12 +101,12 @@ def search_chunk_vectors(
     vector_literal = _vector_literal(query_vector)
     params = [vector_literal, *filter_params, vector_literal, vector_literal, limit]
     sql = f"""
-        select mc.id, mc.material_id, mc.content_block_id, m.filename,
+        select mc.id, mc.material_id, mc.content_block_id, mc.parent_chunk_id, m.filename,
                mc.chunk_index, mc.content, mc.block_type, mc.page_number,
                mc.bounding_box, mc.start_time, mc.end_time, mc.metadata,
                1 - (mc.embedding <=> %s::vector) as score
         from public.material_chunks mc
-        join public.materials m on m.id = mc.material_id
+        join public.materials m on m.id = mc.material_id and m.user_id=mc.user_id and m.subject_id=mc.subject_id
         where {' and '.join(conditions)}
           and m.status = 'ready'
           and vector_dims(mc.embedding) = vector_dims(%s::vector)

@@ -1,13 +1,15 @@
+from app.services.owner_io_service import serialized_owner
 from datetime import UTC, datetime, timedelta
 from hashlib import sha256
 from pathlib import Path
+from uuid import uuid4
 
 from fastapi import HTTPException, UploadFile, status
 
 from app.config.settings import settings
 from app.db.supabase_client import get_supabase_client
 from app.db.vector_store import VectorStoreError, update_chunk_embeddings
-from app.services.chunk_service import build_block_chunk_records
+from app.services.chunk_service import build_block_chunk_records, build_structure_chunk_bundle
 from app.services.content_service import insert_content_blocks
 from app.services.embedding_service import EmbeddingError, embed_texts
 from app.services.file_service import validate_upload_file
@@ -26,7 +28,7 @@ class ProcessingCancelled(RuntimeError):
 
 
 MATERIAL_SELECT = (
-    "id,subject_id,filename,content_type,file_size,status,error_message,created_at,updated_at"
+    "id,subject_id,filename,content_type,file_size,status,error_message,created_at,updated_at,material_purpose,upload_notes_mode"
 )
 
 
@@ -38,6 +40,8 @@ def _to_material(row: dict) -> dict:
         "contentType": row["content_type"],
         "fileSize": row["file_size"],
         "status": row["status"],
+        "materialPurpose": row.get("material_purpose", "learning"),
+        "uploadNotesMode": row.get("upload_notes_mode"),
         "errorMessage": row.get("error_message"),
         "createdAt": row["created_at"],
         "updatedAt": row["updated_at"],
@@ -118,6 +122,8 @@ def _insert_material(
     file_size: int,
     status_value: str = "processing",
     source_hash: str | None = None,
+    material_purpose: str = "learning",
+    upload_notes_mode: str | None = None,
 ) -> dict:
     payload = {
         "user_id": user_id,
@@ -128,6 +134,9 @@ def _insert_material(
         "status": status_value,
         "error_message": None,
         "source_hash": source_hash,
+        "material_purpose": material_purpose,
+        "upload_notes_mode": upload_notes_mode,
+        "upload_notes_request_id": str(uuid4()) if upload_notes_mode else None,
     }
     response = client.table("materials").insert(payload).select(MATERIAL_SELECT).execute()
     return response.data[0]
@@ -163,34 +172,15 @@ def _insert_material_chunks(
     subject_id: str,
     material_id: str,
     records: list[dict],
+    parents: list[dict] | None = None,
+    strategy: str = "baseline",
 ) -> list[dict]:
-    payload = [
-        {
-            "user_id": user_id,
-            "subject_id": subject_id,
-            "material_id": material_id,
-            "chunk_index": record["chunk_index"],
-            "content": record["content"],
-            "metadata": record["metadata"],
-            "content_block_id": record.get("content_block_id"),
-            "block_type": record.get("block_type"),
-            "page_number": record.get("page_number"),
-            "bounding_box": record.get("bounding_box"),
-            "start_time": record.get("start_time"),
-            "end_time": record.get("end_time"),
-        }
-        for record in records
-    ]
-    response = (
-        client.table("material_chunks")
-        .upsert(payload, on_conflict="material_id,chunk_index")
-        .select(
-            "id,user_id,subject_id,material_id,content_block_id,chunk_index,content,"
-            "block_type,page_number,bounding_box,start_time,end_time,metadata,created_at"
-        )
-        .execute()
-    )
-    return response.data
+    # Replace parents and children together; a failed retry preserves the prior
+    # complete bundle instead of leaving stale high-index chunks behind.
+    return client.rpc("replace_material_chunk_bundle", {
+        "p_user_id": user_id, "p_subject_id": subject_id, "p_material_id": material_id,
+        "p_strategy": strategy, "p_parents": parents or [], "p_records": records,
+    }).execute().data
 
 
 def _insert_lightrag_index(
@@ -374,6 +364,7 @@ def _parse_material_blocks(
         segment_blocks = build_audio_blocks(
             transcription, audio_time_offset=segment.start_time,
             analyze_audio_transcript=False, audio_segment_index=segment.index,
+            audio_segment_duration=segment.end_time-segment.start_time,
         )
         blocks.extend(segment_blocks)
     transcript = "\n".join(block["content_text"] for block in blocks if block["content_text"].strip())
@@ -399,6 +390,13 @@ def process_material_bytes(
             content_type=content_type, file_bytes=file_bytes, on_stage=on_stage,
             resume_batch_id=resume_batch_id, on_parser_event=on_parser_event,
         )
+        from app.services.document_structure_service import enrich_document_structure
+        from app.services.observability_service import record_operation
+        from time import perf_counter
+        structure_started = perf_counter()
+        content_blocks, structure_summary = enrich_document_structure(content_blocks)
+        record_operation(operation='document_structure', status='succeeded', started_at=structure_started,
+                         material_id=material_row['id'], stage='parsing', metadata=structure_summary)
         for block in content_blocks:
             scan = scan_untrusted_text(block["content_text"])
             if scan["suspicious"]:
@@ -412,7 +410,11 @@ def process_material_bytes(
             user_id=user_id, subject_id=subject_id,
             material_id=material_row["id"], blocks=content_blocks,
         )
-        chunk_records = build_block_chunk_records(stored_blocks)
+        if settings.chunk_strategy == "structure":
+            bundle = build_structure_chunk_bundle(stored_blocks, parent_size=settings.chunk_parent_size)
+        else:
+            bundle = {"parents": [], "records": build_block_chunk_records(stored_blocks)}
+        chunk_records = bundle["records"]
         if not chunk_records:
             raise DocumentParseError("No extractable text found in this file")
 
@@ -422,6 +424,7 @@ def process_material_bytes(
             subject_id=subject_id,
             material_id=material_row["id"],
             records=chunk_records,
+            parents=bundle["parents"], strategy=settings.chunk_strategy,
         )
         if on_stage:
             on_stage("embedding", 45)
@@ -534,7 +537,9 @@ def process_material_bytes(
     return _to_material(material_row)
 
 
-def create_uploaded_material(user_id: str, subject_id: str, file: UploadFile) -> dict:
+@serialized_owner
+def create_uploaded_material(user_id: str, subject_id: str, file: UploadFile,
+                             material_purpose: str = "learning") -> dict:
     get_subject(user_id=user_id, subject_id=subject_id)
     file_size = validate_upload_file(file)
     filename = _clean_filename(file.filename)
@@ -543,6 +548,7 @@ def create_uploaded_material(user_id: str, subject_id: str, file: UploadFile) ->
     file_bytes = file.file.read()
     material_row = _insert_material(
         client=get_supabase_client(), user_id=user_id, subject_id=subject_id,
+        material_purpose=material_purpose,
         filename=filename, content_type=content_type, file_size=file_size,
         source_hash=sha256(file_bytes).hexdigest(),
     )
@@ -554,11 +560,14 @@ def create_uploaded_material(user_id: str, subject_id: str, file: UploadFile) ->
 
 def create_queued_material(
     *, user_id: str, subject_id: str, filename: str, content_type: str,
-    file_size: int, source_hash: str,
+    file_size: int, source_hash: str, material_purpose: str = "learning",
+    upload_notes_mode: str | None = None,
 ) -> dict:
     row = _insert_material(
         client=get_supabase_client(), user_id=user_id, subject_id=subject_id,
         filename=_clean_filename(filename), content_type=content_type,
         file_size=file_size, status_value="queued", source_hash=source_hash,
+        material_purpose=material_purpose,
+        upload_notes_mode=upload_notes_mode,
     )
     return _to_material(row)

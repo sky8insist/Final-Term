@@ -196,6 +196,7 @@ def test_retrieval_search_returns_citations(monkeypatch):
     monkeypatch.setattr(retrieval_service, "get_supabase_client", lambda: OfflineClient())
     monkeypatch.setattr(retrieval_service, "embed_texts", no_embeddings)
     monkeypatch.setattr(retrieval_service, "_expand_page_context", lambda **_kwargs: None)
+    monkeypatch.setattr(retrieval_service, "_hydrate_lightrag", lambda **kwargs: kwargs["markers"])
     monkeypatch.setattr(retrieval_service, "get_subject", lambda **_: {})
     monkeypatch.setattr(retrieval_service, "_get_subject_embedding_dimension", lambda **_: 2)
     monkeypatch.setattr(retrieval_service, "_subject_has_lightrag_index", lambda **_: True)

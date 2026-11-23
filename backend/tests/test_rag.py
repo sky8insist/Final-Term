@@ -33,12 +33,12 @@ def test_answer_with_rag_generates_answer_records_history_and_progress(monkeypat
 
     async def fake_generate_text_async(prompt, **kwargs):
         assert "retrieved text" in prompt
-        return "这是基于资料的答案。"
+        return "retrieved text[1]。"
 
     def fake_record_qa_history(**kwargs):
         calls.append(("history", kwargs))
         assert kwargs["question"] == "What should I review?"
-        assert kwargs["answer"] == "这是基于资料的答案。"
+        assert kwargs["answer"] == "retrieved text[1]。"
         assert kwargs["citations"][0]["sourceName"] == "notes.txt #0"
         return {"id": "assistant-msg-1"}
 
@@ -59,7 +59,7 @@ def test_answer_with_rag_generates_answer_records_history_and_progress(monkeypat
         )
     )
 
-    assert result["answer"] == "这是基于资料的答案。"
+    assert result["answer"] == "retrieved text[1]。"
     assert result["messageId"] == "assistant-msg-1"
     assert result["citations"][0]["materialId"] == "mat-1"
     assert result["generation"]["mocked"] is False

@@ -132,6 +132,19 @@ class FakeQuery:
 class FakeClient:
     def __init__(self):
         self.db = {"materials": [], "material_chunks": [], "lightrag_material_index": []}
+        self.chunk_bundles = []
+
+    def rpc(self, name, args):
+        assert name == "replace_material_chunk_bundle"
+        assert args["p_user_id"] == USER_ID and args["p_subject_id"] == SUBJECT_ID
+        self.chunk_bundles.append(args)
+        def execute():
+            rows = [{"id": f"00000000-0000-0000-0000-00000000003{i}", "user_id": args["p_user_id"],
+                     "subject_id": args["p_subject_id"], "material_id": args["p_material_id"], **record}
+                    for i, record in enumerate(args["p_records"])]
+            self.db["material_chunks"] = rows
+            return type("Response", (), {"data": rows})()
+        return type("Rpc", (), {"execute": staticmethod(execute)})()
 
     def table(self, name):
         assert name in self.db
@@ -222,9 +235,11 @@ def test_upload_returns_404_for_missing_or_foreign_subject(monkeypatch):
     assert response.json()["detail"] == "Subject not found"
 
 
-def test_upload_processes_txt_and_creates_chunks(monkeypatch, fake_client):
+@pytest.mark.parametrize("strategy", ["baseline", "structure"])
+def test_upload_processes_txt_and_creates_chunks(monkeypatch, fake_client, strategy):
     use_test_user()
     monkeypatch.setattr(material_service, "get_subject", lambda **_: {})
+    monkeypatch.setattr(settings, "chunk_strategy", strategy)
     monkeypatch.setattr(material_service, "embed_texts", lambda texts: [[0.1, 0.2] for _ in texts])
     vector_calls = []
 
@@ -258,6 +273,33 @@ def test_upload_processes_txt_and_creates_chunks(monkeypatch, fake_client):
     assert vector_calls[0]["embedding_model"] == settings.embedding_model
     assert vector_calls[0]["embeddings"] == [[0.1, 0.2]]
     assert fake_client.db["lightrag_material_index"][0]["status"] == "indexed"
+    assert fake_client.chunk_bundles[0]["p_strategy"] == strategy
+    assert bool(fake_client.chunk_bundles[0]["p_parents"]) == (strategy == "structure")
+
+
+def test_ingestion_persists_structure_annotations_and_count_only_telemetry(monkeypatch, fake_client):
+    from app.services import observability_service
+    use_test_user()
+    monkeypatch.setattr(material_service, 'get_subject', lambda **_: {})
+    monkeypatch.setattr(settings, 'chunk_strategy', 'structure')
+    rows = [{'block_type': kind, 'content_text': text, 'sequence_index': index,
+             'page_number': 1, 'source_hash': f'parsed-{index}', 'parser_name': 'fixture',
+             'parser_version': '1', 'confidence': None, 'metadata': {}, 'structured_data': {}}
+            for index, (kind, text) in enumerate([('image', 'Private diagram'), ('paragraph', 'Figure 1: Private model')])]
+    monkeypatch.setattr(material_service, '_parse_material_blocks', lambda **_: rows)
+    monkeypatch.setattr(material_service, 'embed_texts', lambda texts: [[.1, .2] for _ in texts])
+    monkeypatch.setattr(material_service, 'update_chunk_embeddings', lambda **_: 2)
+    monkeypatch.setattr(material_service, 'index_material', lambda **_: {})
+    metrics = []
+    monkeypatch.setattr(observability_service, 'record_operation', lambda **kw: metrics.append(kw))
+    response = client.post('/api/v1/materials/upload', data={'subject_id': SUBJECT_ID},
+                           files={'file': ('notes.txt', b'fixture', 'text/plain')})
+    assert response.json()['material']['status'] == 'ready'
+    structure = fake_client.db['material_chunks'][0]['metadata']['documentStructure']
+    assert structure['relations'][0]['sourceHash'] == 'parsed-1'
+    assert metrics[0]['metadata']['adjacentCaptions'] == 1
+    assert metrics[0]['metadata']['unknownConfidence'] == 2
+    assert 'Private' not in str(metrics[0]['metadata'])
 
 
 def test_upload_marks_material_failed_when_text_is_empty(monkeypatch, fake_client):

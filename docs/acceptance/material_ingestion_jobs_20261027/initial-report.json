@@ -1,0 +1,9 @@
+{
+  "source": "reconstructed from captured first-run output; full runtime report was not written",
+  "checksPassed": 10,
+  "success": false,
+  "cleanup": false,
+  "failureType": "ReadTimeout",
+  "cleanupResolution": "The two observed exact fixture IDs from the single fixture creation transaction were verified and deleted; final confirmation uses a cleanup manifest.",
+  "boundary": "No elapsed-time/runtime counters invented. Storage had already been removed by the tested normal privacy path; failed finally repeated that deletion while DDL locks were held."
+}

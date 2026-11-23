@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "textNormalization": "LF",
+  "date": "2026-11-23",
+  "backendRegression": {
+    "passed": 932,
+    "warnings": 3
+  },
+  "frontendRegression": {
+    "passed": 33,
+    "lint": true,
+    "build": true,
+    "auditVulnerabilities": 0
+  },
+  "scope": "local SQL/Storage/real owner lock; graph coroutine is explicit test substitute",
+  "files": [
+    {
+      "path": "backend/migrations/061_upload_intents.sql",
+      "sha256": "185d87900a41feee12f92168f9e38b24f6199c09a985fb05aa840e577fa246b8"
+    },
+    {
+      "path": "backend/app/services/owner_io_service.py",
+      "sha256": "c4a42e25baf607ea7ffd145d83cf3c3473aa39a6b6e6eae65099f5d1f5df82a5"
+    },
+    {
+      "path": "backend/app/services/lightrag_service.py",
+      "sha256": "f16e132f53d777a2f7bd78eb4dc1a35ce078d6620694d000e80049fb974366aa"
+    },
+    {
+      "path": "backend/app/services/upload_cleanup_service.py",
+      "sha256": "ffec3d2c4ef96c1c50d18e03ee4950b96c6bb0a29acd606b4ab41802c270414f"
+    },
+    {
+      "path": "backend/app/services/ingestion_service.py",
+      "sha256": "6c3a621812c77934152e0a8545ea1a0d1cdfa2914afc6091871da36cb4f9ac14"
+    },
+    {
+      "path": "backend/app/services/privacy_service.py",
+      "sha256": "380a8a7ccdd74776293080a29d594a9e42b47a8fce6ebfffb0973e0d20f701fb"
+    },
+    {
+      "path": "backend/app/services/subject_service.py",
+      "sha256": "732463a14824d7d663b7f9d60f435b567e8cc05fb0d76b882ba283929aa759e9"
+    },
+    {
+      "path": "backend/app/config/settings.py",
+      "sha256": "00f01321b0cebb192bd38761b6911d0157cdb85b55b7987431712e89d2eec636"
+    },
+    {
+      "path": "backend/app/worker/tasks.py",
+      "sha256": "3db43f695934920dae203a14b024daf2a22f7fc206dfcd304061c41360126c9f"
+    },
+    {
+      "path": "backend/app/worker/celery_app.py",
+      "sha256": "af641b31f711f9ea11776e4e258c3a9a5e12a34c876468bc86e3c1a09a710bfa"
+    },
+    {
+      "path": "backend/tests/test_graph_io_lifecycle.py",
+      "sha256": "674c73260c10aa0f241ef987c09e11bf39bb56a1130d7ba642b38cc0d9e00643"
+    },
+    {
+      "path": "backend/tests/test_upload_cleanup.py",
+      "sha256": "a29f7ef7375af32d61a74a43f56022efc90c6627501ab92a6c063c7beda645a0"
+    },
+    {
+      "path": "backend/scripts/verify_upload_recovery.py",
+      "sha256": "23253f03f783257c59e114d3d6146f00efca4f6219ad5723ee556d0e2acf85f9"
+    },
+    {
+      "path": "docs/UPLOAD_RECOVERY.md",
+      "sha256": "5c9df47aa1c85c8cd031b78cf963ce44e5f48d70a852a0f6e02de06d25e9c210"
+    },
+    {
+      "path": "docs/acceptance/UPLOAD_RECOVERY_20261123.md",
+      "sha256": "a0a274081753fdbc6ba519f539e11b6a085ea0fbfdccc83e71dcc875091f765c"
+    },
+    {
+      "path": "docs/acceptance/upload_recovery_20261123/report.json",
+      "sha256": "9b6a35c452b992c75aa7b98b70e43ec458df731dd765bb3b520c2853e60dfc68"
+    },
+    {
+      "path": "config.env.template",
+      "sha256": "06f18789a95fb2ebfcb38885fcce7c8b36d07e30d9e61e97e6f55913151df6e3"
+    },
+    {
+      "path": "README.md",
+      "sha256": "f50cf22a4fc84733440f7fc8009a90edf777f2956a3fc891413deda2af578f53"
+    }
+  ]
+}
